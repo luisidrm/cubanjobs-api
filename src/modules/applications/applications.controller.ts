@@ -9,7 +9,7 @@ import {
   updateApplicationNotes,
   withdrawApplication,
 } from "./applications.queries";
-import { getValidatedParams, getValidatedBody } from "../../middleware/validate";
+import { getValidatedParams } from "../../middleware/validate";
 import type {
   applicationIdParamSchema,
   jobIdParamSchema,
