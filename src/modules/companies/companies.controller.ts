@@ -30,12 +30,12 @@ export async function getMyCompanies(req: Request, res: Response) {
 
 export async function update(req: Request, res: Response) {
   const { id } = getValidatedParams<CompanyIdParams>(req);
-  const company = await updateCompany(req.user!.id, id, req.body);
+  const company = await updateCompany(req.user!, id, req.body);
   res.status(200).json({ success: true, data: company });
 }
 
 export async function remove(req: Request, res: Response) {
   const { id } = getValidatedParams<CompanyIdParams>(req);
-  await deleteCompany(req.user!.id, id);
+  await deleteCompany(req.user!, id);
   res.status(204).send();
 }

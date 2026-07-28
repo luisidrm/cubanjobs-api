@@ -2,6 +2,8 @@ import { Router } from "express";
 import multer from "multer";
 import { uploadAvatar, uploadCv, getCvUrl, uploadCompanyLogo } from "./uploads.controller";
 import { requireAuth, requireRole } from "../../middleware/auth";
+import { validateParams } from "../../middleware/validate";
+import { companyLogoParamSchema } from "./uploads.schema";
 import { AppError } from "../../lib/AppError";
 
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -26,15 +28,8 @@ const pdfUpload = makeUpload([PDF_TYPE], 10);
 
 const router = Router();
 
-// Profile picture — any authenticated user
-router.post(
-  "/avatar",
-  requireAuth,
-  imageUpload.single("file"),
-  uploadAvatar
-);
+router.post("/avatar", requireAuth, imageUpload.single("file"), uploadAvatar);
 
-// CV — employees only
 router.post(
   "/cv",
   requireAuth,
@@ -43,19 +38,13 @@ router.post(
   uploadCv
 );
 
-// Get a pre-signed URL to download own CV — employees only
-router.get(
-  "/cv",
-  requireAuth,
-  requireRole("employee"),
-  getCvUrl
-);
+router.get("/cv", requireAuth, requireRole("employee"), getCvUrl);
 
-// Company logo — employers only
 router.post(
   "/company-logo/:companyId",
   requireAuth,
-  requireRole("employer"),
+  requireRole("employer", "admin"),
+  validateParams(companyLogoParamSchema),
   imageUpload.single("file"),
   uploadCompanyLogo
 );

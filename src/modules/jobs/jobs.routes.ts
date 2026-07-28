@@ -8,6 +8,8 @@ import {
   jobIdParamSchema,
   jobSearchQuerySchema,
 } from "./jobs.schemas";
+import { getForJob } from "../applications/applications.controller";
+import { jobIdParamSchema as applicationsJobIdParamSchema } from "../applications/applications.schemas";
 
 const router = Router();
 
@@ -19,7 +21,7 @@ router.get("/:id", validateParams(jobIdParamSchema), getById);
 router.get(
   "/company/:id",
   requireAuth,
-  requireRole("employer"),
+  requireRole("employer", "admin"),
   validateParams(jobIdParamSchema),
   getByCompany
 );
@@ -31,6 +33,15 @@ router.post(
   requireRole("employer"),
   validateBody(createJobSchema),
   create
+);
+
+// Employer/admin only: list applicants for a job
+router.get(
+  "/:id/applications",
+  requireAuth,
+  requireRole("employer", "admin"),
+  validateParams(applicationsJobIdParamSchema),
+  getForJob
 );
 
 router.patch(

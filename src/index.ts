@@ -2,7 +2,7 @@ import "dotenv/config";
 
 import app from "./app";
 import { checkDatabaseConnection, closeDatabaseConnection } from "../db/client";
-import { ensureBucket } from "./lib/minio";
+import { ensureBucket, ensureBuckets } from "./lib/minio";
 
 const PORT = Number(process.env.PORT) || 3000;
 
@@ -16,7 +16,7 @@ async function start() {
   }
 
   try {
-    await ensureBucket();
+    await ensureBuckets();
     console.log("✅ MinIO bucket ready");
   } catch (err) {
     console.warn("⚠️  MinIO not available:", (err as Error).message);

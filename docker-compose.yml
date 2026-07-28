@@ -4,7 +4,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Password0912+
+      POSTGRES_PASSWORD: Password0912%2B
       POSTGRES_DB: jobs
     ports:
       - "5432:5432"
@@ -23,9 +23,9 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      POSTGRESQL_CONNECTION_URI: postgresql://postgres:Password0912+@postgres:5432/jobs
+      POSTGRESQL_CONNECTION_URI: postgresql://postgres:Password0912%2B@postgres:5432/jobs
       # Generate a random string and set it here, then mirror it in .env as SUPERTOKENS_API_KEY
-      API_KEYS: your-supertokens-api-key-change-me
+      API_KEYS: b3YkQLxA6OKI-Lq_dW6nfKk7DX1wOlFg
     ports:
       - "3567:3567"
     healthcheck:

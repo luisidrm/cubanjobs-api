@@ -14,6 +14,7 @@ import jobsRoutes from "./modules/jobs/jobs.routes";
 import companiesRoutes from "./modules/companies/companies.routes";
 import uploadsRoutes from "./modules/uploads/uploads.routes";
 import { errorHandler, notFoundHandler } from "./middleware/errorhandler";
+import applicationsRoutes from "./modules/applications/applications.routes";
 
 initSupertokens();
 
@@ -27,13 +28,14 @@ app.use(
   })
 );
 
+// Handles all /auth/* routes (signup, signin, signout, session refresh, etc.)
+app.use(stMiddleware());
+
 app.use(helmet());
 app.use(compression());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Handles all /auth/* routes (signup, signin, signout, session refresh, etc.)
-app.use(stMiddleware());
 
 app.get("/health", (_, res) => {
   res.status(200).json({ success: true, message: "API is running" });
@@ -43,6 +45,7 @@ app.use("/api/v1/users", usersRoutes);
 app.use("/api/v1/jobs", jobsRoutes);
 app.use("/api/v1/companies", companiesRoutes);
 app.use("/api/v1/uploads", uploadsRoutes);
+app.use("/api/v1/applications", applicationsRoutes);
 
 app.use(notFoundHandler);
 

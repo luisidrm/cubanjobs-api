@@ -2,45 +2,42 @@ import type { Request, Response } from "express";
 import { eq } from "drizzle-orm";
 import { db } from "../../../db/client";
 import { users } from "../../../db";
-import { uploadFile, mimeToExt, deleteFile, getSignedUrl } from "../../lib/minio";
+import {
+  uploadPublicFile,
+  uploadPrivateFile,
+  mimeToExt,
+  deletePublicFile,
+  getSignedUrl,
+  PUBLIC_BUCKET,
+} from "../../lib/minio";
 import { updateCompanyLogo, getCompanyById } from "../companies/companies.queries";
 import { AppError } from "../../lib/AppError";
 
-/** POST /api/v1/uploads/avatar */
 export async function uploadAvatar(req: Request, res: Response) {
   if (!req.file) throw new AppError(400, "No file provided");
 
   const ext = mimeToExt(req.file.mimetype);
   const objectName = `profiles/${req.user!.id}/avatar.${ext}`;
 
-  const url = await uploadFile(req.file.buffer, objectName, req.file.mimetype);
+  const url = await uploadPublicFile(req.file.buffer, objectName, req.file.mimetype);
 
-  await db
-    .update(users)
-    .set({ profilePictureUrl: url })
-    .where(eq(users.id, req.user!.id));
+  await db.update(users).set({ profilePictureUrl: url }).where(eq(users.id, req.user!.id));
 
   res.status(200).json({ success: true, data: { url } });
 }
 
-/** POST /api/v1/uploads/cv */
 export async function uploadCv(req: Request, res: Response) {
   if (!req.file) throw new AppError(400, "No file provided");
 
   const objectName = `profiles/${req.user!.id}/cv.pdf`;
 
-  await uploadFile(req.file.buffer, objectName, req.file.mimetype);
+  await uploadPrivateFile(req.file.buffer, objectName, req.file.mimetype);
 
-  // CVs are private — we store the object path, not a public URL
-  await db
-    .update(users)
-    .set({ cvUrl: objectName })
-    .where(eq(users.id, req.user!.id));
+  await db.update(users).set({ cvUrl: objectName }).where(eq(users.id, req.user!.id));
 
   res.status(200).json({ success: true, data: { objectName } });
 }
 
-/** GET /api/v1/uploads/cv — returns a 1-hour pre-signed URL for the caller's CV */
 export async function getCvUrl(req: Request, res: Response) {
   const [user] = await db
     .select({ cvUrl: users.cvUrl })
@@ -53,29 +50,28 @@ export async function getCvUrl(req: Request, res: Response) {
   res.status(200).json({ success: true, data: { url: signedUrl } });
 }
 
-/** POST /api/v1/uploads/company-logo/:companyId */
 export async function uploadCompanyLogo(req: Request, res: Response) {
   if (!req.file) throw new AppError(400, "No file provided");
 
   const companyId = req.params.companyId;
 
-  // Verify ownership before accepting the file
   const company = await getCompanyById(companyId);
-  if (company.ownerId !== req.user!.id) {
+  if (req.user!.role !== "admin" && company.ownerId !== req.user!.id) {
     throw new AppError(403, "You do not own this company");
-  }
-
-  // Delete the old logo if one exists
-  if (company.logoUrl) {
-    const oldObjectName = company.logoUrl.split(`/cuban-jobs/`)[1];
-    if (oldObjectName) await deleteFile(oldObjectName).catch(() => null);
   }
 
   const ext = mimeToExt(req.file.mimetype);
   const objectName = `companies/${companyId}/logo.${ext}`;
 
-  const url = await uploadFile(req.file.buffer, objectName, req.file.mimetype);
-  const updated = await updateCompanyLogo(req.user!.id, companyId, url);
+  // Upload + commit first — only delete the old logo once the new one
+  // is confirmed live, so a failure never leaves the company logo-less.
+  const url = await uploadPublicFile(req.file.buffer, objectName, req.file.mimetype);
+  const updated = await updateCompanyLogo(req.user!, companyId, url);
+
+  if (company.logoUrl && company.logoUrl !== url) {
+    const oldObjectName = company.logoUrl.split(`/${PUBLIC_BUCKET}/`)[1];
+    if (oldObjectName) await deletePublicFile(oldObjectName).catch(() => null);
+  }
 
   res.status(200).json({ success: true, data: updated });
 }

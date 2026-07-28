@@ -15,6 +15,7 @@ export const applicationStatusEnum = pgEnum("application_status", [
   "reviewed",
   "rejected",
   "accepted",
+  "withdrawn",
 ]);
 
 export const applications = pgTable(
@@ -34,10 +35,8 @@ export const applications = pgTable(
 
     coverLetter: text("cover_letter"),
 
-    // Allows applicant to submit a CV different from their profile's default
-    resumeUrl: text("resume_url"),
+    resumeUrl: text("resume_url").notNull(),
 
-    // Private notes visible only to the employer
     employerNotes: text("employer_notes"),
 
     ...timestamps,
@@ -51,3 +50,4 @@ export const applications = pgTable(
 
 export type Application = typeof applications.$inferSelect;
 export type NewApplication = typeof applications.$inferInsert;
+export type ApplicationStatus = typeof applicationStatusEnum.enumValues[number];
