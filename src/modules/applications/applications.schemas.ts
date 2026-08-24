@@ -8,8 +8,14 @@ export const applyToJobSchema = z.object({
   resumeUrl: z.string().optional(),
 });
 
+// Excludes "withdrawn" — that's applicant-only, set via the separate
+// PATCH /:id/withdraw endpoint, not something an employer/admin should set.
+export const employerSettableStatusValues = applicationStatusEnum.enumValues.filter(
+  (s) => s !== "withdrawn"
+) as Exclude<(typeof applicationStatusEnum.enumValues)[number], "withdrawn">[];
+
 export const updateApplicationStatusSchema = z.object({
-  status: z.enum(applicationStatusEnum.enumValues),
+  status: z.enum(employerSettableStatusValues),
 });
 
 export const updateApplicationNotesSchema = z.object({

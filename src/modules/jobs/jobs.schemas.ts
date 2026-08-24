@@ -23,7 +23,9 @@ export const createJobSchema = z.object({
   jobType: z.enum(jobTypeValues).optional(),
   isRemote: z.boolean().optional(),
   status: z.enum(jobStatusValues).optional(),
-  expiresAt: z.string().datetime().optional(),
+  // Coerced to Date: the Drizzle `timestamp` column expects a Date, not the
+  // ISO string the client sends over JSON.
+  expiresAt: z.coerce.date().optional(),
 });
 
 export const updateJobSchema = createJobSchema
@@ -36,7 +38,10 @@ export const jobIdParamSchema = z.object({
 
 export const jobSearchQuerySchema = z.object({
   q: z.string().optional(),
-  isRemote: z.coerce.boolean().optional(),
+  isRemote: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((val) => (val === undefined ? undefined : val === "true")),
   location: z.string().optional(),
   currency: z.enum(currencyValues).optional(),
   jobType: z.enum(jobTypeValues).optional(),

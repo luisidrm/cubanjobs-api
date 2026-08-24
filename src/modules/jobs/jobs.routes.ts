@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { search, getById, getByCompany, create, update, remove } from "./jobs.controller";
-import { requireAuth, requireRole } from "../../middleware/auth";
+import { requireAuth, requireRole, requireVerifiedEmail } from "../../middleware/auth";
 import { validateBody, validateParams, validateQuery } from "../../middleware/validate";
 import {
   createJobSchema,
@@ -31,6 +31,7 @@ router.post(
   "/",
   requireAuth,
   requireRole("employer"),
+  requireVerifiedEmail,
   validateBody(createJobSchema),
   create
 );

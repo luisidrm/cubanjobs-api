@@ -2,12 +2,14 @@ import { and, eq } from "drizzle-orm";
 import { db } from "../../../db/client";
 import { applications, jobs, companies, users, type Application } from "../../../db";
 import { AppError } from "../../lib/AppError";
+import { enqueueApplicationStatusNotification } from "../../lib/queue";
+import { insertNotification } from "../notifications/notifications.queries";
 import type {
   ApplyToJobInput,
   UpdateApplicationStatusInput,
   UpdateApplicationNotesInput,
 } from "./applications.schemas";
-import type { RequestingUser } from "../companies/companies.queries";
+import { assertCanManage, type RequestingUser } from "../companies/companies.queries";
 
 /**
  * Applies to a job on behalf of the given user.
@@ -61,6 +63,7 @@ export async function applyToJob(
         resumeUrl,
       })
       .returning();
+    if (!application) throw new AppError(500, "Failed to create application");
     return application;
   } catch (err: any) {
     // Fallback in case of a race between the check above and the insert
@@ -71,8 +74,49 @@ export async function applyToJob(
   }
 }
 
-export async function getMyApplications(userId: string): Promise<Application[]> {
-  return db.select().from(applications).where(eq(applications.userId, userId));
+export interface ApplicationWithJob {
+  id: string;
+  status: Application["status"];
+  coverLetter: string | null;
+  resumeUrl: string;
+  createdAt: Date;
+  job: {
+    id: string;
+    title: string;
+    company: { id: string; name: string };
+  };
+}
+
+export async function getMyApplications(userId: string): Promise<ApplicationWithJob[]> {
+  const rows = await db
+    .select({
+      id: applications.id,
+      status: applications.status,
+      coverLetter: applications.coverLetter,
+      resumeUrl: applications.resumeUrl,
+      createdAt: applications.createdAt,
+      jobId: jobs.id,
+      jobTitle: jobs.title,
+      companyId: companies.id,
+      companyName: companies.name,
+    })
+    .from(applications)
+    .innerJoin(jobs, eq(applications.jobId, jobs.id))
+    .innerJoin(companies, eq(jobs.companyId, companies.id))
+    .where(eq(applications.userId, userId));
+
+  return rows.map((r) => ({
+    id: r.id,
+    status: r.status,
+    coverLetter: r.coverLetter,
+    resumeUrl: r.resumeUrl,
+    createdAt: r.createdAt,
+    job: {
+      id: r.jobId,
+      title: r.jobTitle,
+      company: { id: r.companyId, name: r.companyName },
+    },
+  }));
 }
 
 export async function getApplicationById(id: string): Promise<Application> {
@@ -101,33 +145,82 @@ export async function assertCanAccessApplication(
   const [company] = await db.select().from(companies).where(eq(companies.id, job.companyId));
   if (!company) throw new AppError(404, "Company not found");
 
-  if (company.ownerId !== user.id) {
-    throw new AppError(403, "You do not have permission to access this application");
-  }
+  await assertCanManage(company, user);
 
   return application;
 }
 
+export interface ApplicationWithApplicant {
+  id: string;
+  status: Application["status"];
+  coverLetter: string | null;
+  resumeUrl: string;
+  employerNotes: string | null;
+  createdAt: Date;
+  applicant: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    email: string;
+    phone: string | null;
+    profilePictureUrl: string | null;
+  };
+}
+
 /**
  * Checks whether the requesting user owns the company behind a job,
- * and returns all applications for that job. Admins bypass the check.
+ * and returns all applications for that job, joined with minimal
+ * safe applicant profile fields (an employer needs to know who
+ * applied, not just an opaque userId). Admins bypass the check.
  */
 export async function getApplicationsForJob(
   user: RequestingUser,
   jobId: string
-): Promise<Application[]> {
+): Promise<ApplicationWithApplicant[]> {
   const [job] = await db.select().from(jobs).where(eq(jobs.id, jobId));
   if (!job) throw new AppError(404, "Job not found");
 
   if (user.role !== "admin") {
     const [company] = await db.select().from(companies).where(eq(companies.id, job.companyId));
     if (!company) throw new AppError(404, "Company not found");
-    if (company.ownerId !== user.id) {
-      throw new AppError(403, "You do not have permission to view applicants for this job");
-    }
+    await assertCanManage(company, user);
   }
 
-  return db.select().from(applications).where(eq(applications.jobId, jobId));
+  const rows = await db
+    .select({
+      id: applications.id,
+      status: applications.status,
+      coverLetter: applications.coverLetter,
+      resumeUrl: applications.resumeUrl,
+      employerNotes: applications.employerNotes,
+      createdAt: applications.createdAt,
+      applicantId: users.id,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      email: users.email,
+      phone: users.phone,
+      profilePictureUrl: users.profilePictureUrl,
+    })
+    .from(applications)
+    .innerJoin(users, eq(applications.userId, users.id))
+    .where(eq(applications.jobId, jobId));
+
+  return rows.map((r) => ({
+    id: r.id,
+    status: r.status,
+    coverLetter: r.coverLetter,
+    resumeUrl: r.resumeUrl,
+    employerNotes: r.employerNotes,
+    createdAt: r.createdAt,
+    applicant: {
+      id: r.applicantId,
+      firstName: r.firstName,
+      lastName: r.lastName,
+      email: r.email,
+      phone: r.phone,
+      profilePictureUrl: r.profilePictureUrl,
+    },
+  }));
 }
 
 export async function updateApplicationStatus(
@@ -141,19 +234,48 @@ export async function updateApplicationStatus(
   const [job] = await db.select().from(jobs).where(eq(jobs.id, application.jobId));
   if (!job) throw new AppError(404, "Job not found");
 
-  if (user.role !== "admin") {
-    const [company] = await db.select().from(companies).where(eq(companies.id, job.companyId));
-    if (!company) throw new AppError(404, "Company not found");
-    if (company.ownerId !== user.id) {
-      throw new AppError(403, "You do not have permission to update this application");
-    }
-  }
+  const [company] = await db.select().from(companies).where(eq(companies.id, job.companyId));
+  if (!company) throw new AppError(404, "Company not found");
+
+  await assertCanManage(company, user);
 
   const [updated] = await db
     .update(applications)
     .set({ status: input.status })
     .where(eq(applications.id, applicationId))
     .returning();
+  if (!updated) throw new AppError(500, "Failed to update application status");
+
+  // Persisted in-app history — synchronous with the request, unlike the
+  // push/email below, since it backs the mobile app's own notification
+  // inbox and must not depend on Redis/the BullMQ worker being up.
+  await insertNotification({
+    userId: updated.userId,
+    type: "application_status_changed",
+    title: `Your application to ${job.title} was updated`,
+    body: `Your application at ${company.name} is now ${updated.status}.`,
+    data: { applicationId: updated.id, jobId: job.id },
+  });
+
+  const [applicant] = await db
+    .select({
+      email: users.email,
+      firstName: users.firstName,
+      expoPushToken: users.expoPushToken,
+    })
+    .from(users)
+    .where(eq(users.id, updated.userId));
+  if (applicant) {
+    await enqueueApplicationStatusNotification({
+      applicantEmail: applicant.email,
+      applicantName: applicant.firstName ?? "there",
+      expoPushToken: applicant.expoPushToken,
+      jobTitle: job.title,
+      companyName: company.name,
+      status: updated.status,
+    });
+  }
+
   return updated;
 }
 
@@ -170,9 +292,7 @@ export async function updateApplicationNotes(
   if (user.role !== "admin") {
     const [company] = await db.select().from(companies).where(eq(companies.id, job.companyId));
     if (!company) throw new AppError(404, "Company not found");
-    if (company.ownerId !== user.id) {
-      throw new AppError(403, "You do not have permission to update this application");
-    }
+    await assertCanManage(company, user);
   }
 
   const [updated] = await db
@@ -180,6 +300,7 @@ export async function updateApplicationNotes(
     .set({ employerNotes: input.employerNotes })
     .where(eq(applications.id, applicationId))
     .returning();
+  if (!updated) throw new AppError(500, "Failed to update application notes");
   return updated;
 }
 
@@ -199,5 +320,6 @@ export async function withdrawApplication(
     .set({ status: "withdrawn" })
     .where(eq(applications.id, applicationId))
     .returning();
+  if (!updated) throw new AppError(500, "Failed to withdraw application");
   return updated;
 }

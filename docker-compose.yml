@@ -4,10 +4,10 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Password0912%2B
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: jobs
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -23,9 +23,10 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      POSTGRESQL_CONNECTION_URI: postgresql://postgres:Password0912%2B@postgres:5432/jobs
-      # Generate a random string and set it here, then mirror it in .env as SUPERTOKENS_API_KEY
-      API_KEYS: b3YkQLxA6OKI-Lq_dW6nfKk7DX1wOlFg
+      # Password must be URL-encoded here if it contains reserved URI characters —
+      # keep POSTGRES_PASSWORD_URLENCODED in sync with POSTGRES_PASSWORD above.
+      POSTGRESQL_CONNECTION_URI: postgresql://postgres:${POSTGRES_PASSWORD_URLENCODED}@postgres:5432/jobs
+      API_KEYS: ${SUPERTOKENS_API_KEY}
     ports:
       - "3567:3567"
     healthcheck:
@@ -54,8 +55,8 @@ services:
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin123
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
     ports:
       - "9000:9000"   # S3-compatible API
       - "9001:9001"   # Web console (open http://localhost:9001 in browser)

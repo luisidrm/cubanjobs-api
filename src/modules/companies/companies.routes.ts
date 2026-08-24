@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { create, getById, getMyCompanies, update, remove } from "./companies.controller";
-import { requireAuth, requireRole } from "../../middleware/auth";
+import { requireAuth, requireRole, requireVerifiedEmail } from "../../middleware/auth";
 import { validateBody, validateParams } from "../../middleware/validate";
 import { createCompanySchema, updateCompanySchema, companyIdParamSchema } from "./companies.schemas";
 
@@ -13,7 +13,14 @@ router.get("/my", requireAuth, requireRole("employer"), getMyCompanies);
 router.get("/:id", validateParams(companyIdParamSchema), getById);
 
 // Employers only: create, update, delete
-router.post("/", requireAuth, requireRole("employer"), validateBody(createCompanySchema), create);
+router.post(
+  "/",
+  requireAuth,
+  requireRole("employer"),
+  requireVerifiedEmail,
+  validateBody(createCompanySchema),
+  create
+);
 
 router.patch(
   "/:id",

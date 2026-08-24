@@ -3,7 +3,7 @@ import { db } from "../../../db/client";
 import { jobs, jobTags, companies, type Job } from "../../../db";
 import { AppError } from "../../lib/AppError";
 import type { CreateJobInput, UpdateJobInput } from "./jobs.schemas";
-import type { RequestingUser } from "../companies/companies.queries";
+import { assertCanManage, getCompanyById, type RequestingUser } from "../companies/companies.queries";
 
 export interface JobSearchFilters {
   q?: string;
@@ -16,7 +16,22 @@ export interface JobSearchFilters {
   offset?: number;
 }
 
-export async function searchJobs(filters: JobSearchFilters): Promise<Job[]> {
+export interface JobWithCompany {
+  id: string;
+  title: string;
+  description: string;
+  salaryMin: number | null;
+  salaryMax: number | null;
+  currency: Job["currency"];
+  location: string | null;
+  jobType: Job["jobType"];
+  isRemote: boolean;
+  viewCount: number;
+  createdAt: Date;
+  company: { id: string; name: string; logoUrl: string | null };
+}
+
+export async function searchJobs(filters: JobSearchFilters): Promise<JobWithCompany[]> {
   const conditions = [eq(jobs.status, "active")];
 
   if (filters.q) {
@@ -47,12 +62,43 @@ export async function searchJobs(filters: JobSearchFilters): Promise<Job[]> {
     }
   }
 
-  return db
-    .select()
+  const rows = await db
+    .select({
+      id: jobs.id,
+      title: jobs.title,
+      description: jobs.description,
+      salaryMin: jobs.salaryMin,
+      salaryMax: jobs.salaryMax,
+      currency: jobs.currency,
+      location: jobs.location,
+      jobType: jobs.jobType,
+      isRemote: jobs.isRemote,
+      viewCount: jobs.viewCount,
+      createdAt: jobs.createdAt,
+      companyId: companies.id,
+      companyName: companies.name,
+      companyLogoUrl: companies.logoUrl,
+    })
     .from(jobs)
+    .innerJoin(companies, eq(jobs.companyId, companies.id))
     .where(and(...conditions))
     .limit(filters.limit ?? 20)
     .offset(filters.offset ?? 0);
+
+  return rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    description: r.description,
+    salaryMin: r.salaryMin,
+    salaryMax: r.salaryMax,
+    currency: r.currency,
+    location: r.location,
+    jobType: r.jobType,
+    isRemote: r.isRemote,
+    viewCount: r.viewCount,
+    createdAt: r.createdAt,
+    company: { id: r.companyId, name: r.companyName, logoUrl: r.companyLogoUrl },
+  }));
 }
 
 function toTsQueryParam(raw: string): string {
@@ -71,6 +117,47 @@ export async function getJobById(id: string): Promise<Job> {
   return job;
 }
 
+/** Public single-job lookup, with the company joined in for job detail views. */
+export async function getJobWithCompanyById(id: string): Promise<JobWithCompany> {
+  const [row] = await db
+    .select({
+      id: jobs.id,
+      title: jobs.title,
+      description: jobs.description,
+      salaryMin: jobs.salaryMin,
+      salaryMax: jobs.salaryMax,
+      currency: jobs.currency,
+      location: jobs.location,
+      jobType: jobs.jobType,
+      isRemote: jobs.isRemote,
+      viewCount: jobs.viewCount,
+      createdAt: jobs.createdAt,
+      companyId: companies.id,
+      companyName: companies.name,
+      companyLogoUrl: companies.logoUrl,
+    })
+    .from(jobs)
+    .innerJoin(companies, eq(jobs.companyId, companies.id))
+    .where(eq(jobs.id, id));
+
+  if (!row) throw new AppError(404, "Job not found");
+
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    salaryMin: row.salaryMin,
+    salaryMax: row.salaryMax,
+    currency: row.currency,
+    location: row.location,
+    jobType: row.jobType,
+    isRemote: row.isRemote,
+    viewCount: row.viewCount,
+    createdAt: row.createdAt,
+    company: { id: row.companyId, name: row.companyName, logoUrl: row.companyLogoUrl },
+  };
+}
+
 export async function incrementViewCount(id: string): Promise<void> {
   await db
     .update(jobs)
@@ -79,11 +166,8 @@ export async function incrementViewCount(id: string): Promise<void> {
 }
 
 async function assertOwnsCompany(user: RequestingUser, companyId: string) {
-  const [company] = await db.select().from(companies).where(eq(companies.id, companyId));
-  if (!company) throw new AppError(404, "Company not found");
-  if (user.role !== "admin" && company.ownerId !== user.id) {
-    throw new AppError(403, "You do not have permission to manage jobs for this company");
-  }
+  const company = await getCompanyById(companyId);
+  await assertCanManage(company, user);
   return company;
 }
 
@@ -102,6 +186,7 @@ export async function getJobsByCompany(
 export async function createJob(user: RequestingUser, input: CreateJobInput): Promise<Job> {
   await assertOwnsCompany(user, input.companyId);
   const [job] = await db.insert(jobs).values(input).returning();
+  if (!job) throw new AppError(500, "Failed to create job");
   return job;
 }
 
@@ -113,6 +198,7 @@ export async function updateJob(
   const job = await getJobById(jobId);
   await assertOwnsCompany(user, job.companyId);
   const [updated] = await db.update(jobs).set(input).where(eq(jobs.id, jobId)).returning();
+  if (!updated) throw new AppError(500, "Failed to update job");
   return updated;
 }
 

@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import type { z } from "zod";
 import {
   searchJobs,
-  getJobById,
+  getJobWithCompanyById,
   incrementViewCount,
   getJobsByCompany,
   createJob,
@@ -10,20 +10,21 @@ import {
   deleteJob,
   type JobSearchFilters,
 } from "./jobs.queries";
-import { getValidatedParams } from "../../middleware/validate";
-import type { jobIdParamSchema } from "./jobs.schemas";
+import { getValidatedParams, getValidatedQuery } from "../../middleware/validate";
+import type { jobIdParamSchema, jobSearchQuerySchema } from "./jobs.schemas";
 
 type JobIdParams = z.infer<typeof jobIdParamSchema>;
+type JobSearchQuery = z.infer<typeof jobSearchQuerySchema>;
 
 export async function search(req: Request, res: Response) {
-  const filters = req.query as unknown as JobSearchFilters;
-  const jobs = await searchJobs(filters);
+  const filters = getValidatedQuery<JobSearchQuery>(req);
+  const jobs = await searchJobs(filters as JobSearchFilters);
   res.status(200).json({ success: true, data: jobs });
 }
 
 export async function getById(req: Request, res: Response) {
   const { id } = getValidatedParams<JobIdParams>(req);
-  const job = await getJobById(id);
+  const job = await getJobWithCompanyById(id);
   incrementViewCount(id).catch(() => null);
   res.status(200).json({ success: true, data: job });
 }

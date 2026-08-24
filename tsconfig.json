@@ -2,8 +2,10 @@
   // Visit https://aka.ms/tsconfig to read more about this file
   "compilerOptions": {
     // File Layout
-    // "rootDir": "./src",
-    // "outDir": "./dist",
+    // rootDir is left to be inferred: db/ and scripts/ sit next to src/ and
+    // are pulled in via relative imports, so pinning rootDir to "./src"
+    // would make tsc reject them as outside the project root.
+    "outDir": "./dist",
 
     // Environment Settings
     // See also https://aka.ms/tsconfig/module

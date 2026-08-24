@@ -1,10 +1,19 @@
 import { Client } from "minio";
 import { Readable } from "stream";
 
+// The insecure local-dev fallbacks below must never silently apply in
+// production — fail loudly at startup instead of uploading through weak
+// credentials against whatever endpoint MINIO_ENDPOINT (e.g. real S3) points to.
+if (process.env.NODE_ENV === "production" && (!process.env.MINIO_ACCESS_KEY || !process.env.MINIO_SECRET_KEY)) {
+  throw new Error("MINIO_ACCESS_KEY and MINIO_SECRET_KEY must be set in production");
+}
+
 export const minioClient = new Client({
   endPoint: process.env.MINIO_ENDPOINT ?? "localhost",
   port: Number(process.env.MINIO_PORT ?? 9000),
   useSSL: process.env.MINIO_USE_SSL === "true",
+  // Required by S3 outside us-east-1; unused by self-hosted MinIO.
+  ...(process.env.MINIO_REGION ? { region: process.env.MINIO_REGION } : {}),
   accessKey: process.env.MINIO_ACCESS_KEY ?? "minioadmin",
   secretKey: process.env.MINIO_SECRET_KEY ?? "minioadmin123",
 });

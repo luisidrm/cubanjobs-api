@@ -50,8 +50,21 @@ export function validateQuery(schema: ZodType) {
     if (!result.success) {
       throw new AppError(400, "Invalid query parameters", result.error.issues);
     }
-    // req.query is technically read-only in types but assignable at runtime
-    req.query = result.data as typeof req.query;
+    // req.query is a getter-only property in Express 5 (no setter) —
+    // reassigning it throws. Stash the parsed result separately instead,
+    // mirroring validateParams/getValidatedParams above.
+    (req as Request & { validatedQuery?: unknown }).validatedQuery = result.data;
     next();
   };
+}
+
+/**
+ * Retrieves the query object produced by validateQuery(schema) for this
+ * request. Only call this in a route handler that has validateQuery(...)
+ * registered earlier in its middleware chain — there's no runtime check
+ * tying T to what was actually validated, so a mismatched type here is a
+ * silent bug, not a caught one.
+ */
+export function getValidatedQuery<T>(req: Request): T {
+  return (req as Request & { validatedQuery?: T }).validatedQuery as T;
 }

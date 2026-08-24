@@ -28,6 +28,10 @@ export const users = pgTable("users", {
 
   cvUrl: text("cv_url"),
 
+  linkedinUrl: text("linkedin_url"),
+
+  expoPushToken: text("expo_push_token"),
+
   ...timestamps,
 });
 

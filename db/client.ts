@@ -13,6 +13,9 @@ export const pool = new Pool({
   max: Number(process.env.DATABASE_POOL_MAX ?? 10),
   idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 5_000,
+  // Managed Postgres (RDS, etc.) requires SSL — local Docker Postgres doesn't
+  // support it, so this stays off unless explicitly opted into via env var.
+  ssl: process.env.DATABASE_SSL === "true" ? { rejectUnauthorized: false } : undefined,
 });
 
 pool.on("error", (err) => {

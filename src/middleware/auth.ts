@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { verifySession } from "supertokens-node/recipe/session/framework/express";
 import type { SessionRequest } from "supertokens-node/framework/express";
+import EmailVerification from "supertokens-node/recipe/emailverification";
 import { getUserBySupertokensId } from "../modules/users/users.queries";
 import { AppError } from "../lib/AppError";
 import type { UserRole } from "../../db/schema/users";
@@ -25,7 +26,7 @@ declare global {
  * a generic 500 or crash the process.
  */
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
-  verifySession()(req as SessionRequest, res, async (err?: Error) => {
+  verifySession()(req as SessionRequest, res, async (err?: unknown) => {
     if (err) return next(err);
 
     // biome-ignore lint/style/noNonNullAssertion: <explanation>
@@ -44,6 +45,27 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
       next(e);
     }
   });
+}
+
+/**
+ * Guards a route to verified-email users only. Must be placed after
+ * requireAuth (reads the SuperTokens session requireAuth's verifySession()
+ * call already attached to req). EmailVerification is initialized in
+ * "OPTIONAL" mode globally — sessions for unverified users still work
+ * everywhere else — so this is the explicit, opt-in gate for the specific
+ * actions that should actually require it (e.g. applying to a job).
+ */
+export async function requireVerifiedEmail(req: Request, _res: Response, next: NextFunction) {
+  try {
+    const recipeUserId = (req as SessionRequest).session!.getRecipeUserId();
+    const verified = await EmailVerification.isEmailVerified(recipeUserId);
+    if (!verified) {
+      throw new AppError(403, "Please verify your email before continuing");
+    }
+    next();
+  } catch (e) {
+    next(e);
+  }
 }
 
 /**

@@ -3,6 +3,10 @@ import "dotenv/config";
 import app from "./app";
 import { checkDatabaseConnection, closeDatabaseConnection } from "../db/client";
 import { ensureBucket, ensureBuckets } from "./lib/minio";
+// Starting the BullMQ notification queue/worker is a side effect of this
+// import. Its own Redis connections handle unreachable-Redis non-fatally
+// internally (see lib/queue.ts) — nothing to await or catch here.
+import { closeNotificationQueue } from "./lib/queue";
 
 const PORT = Number(process.env.PORT) || 3000;
 
@@ -31,6 +35,7 @@ async function start() {
     console.log(`\n${signal} received, shutting down gracefully...`);
     server.close(async () => {
       await closeDatabaseConnection();
+      await closeNotificationQueue();
       process.exit(0);
     });
   };

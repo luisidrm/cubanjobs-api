@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { eq } from "drizzle-orm";
+import type { z } from "zod";
 import { db } from "../../../db/client";
 import { users } from "../../../db";
 import {
@@ -10,8 +11,12 @@ import {
   getSignedUrl,
   PUBLIC_BUCKET,
 } from "../../lib/minio";
-import { updateCompanyLogo, getCompanyById } from "../companies/companies.queries";
+import { setCompanyLogo, getCompanyById, assertCanManage } from "../companies/companies.queries";
 import { AppError } from "../../lib/AppError";
+import { getValidatedParams } from "../../middleware/validate";
+import type { companyLogoParamSchema } from "./uploads.schema";
+
+type CompanyLogoParams = z.infer<typeof companyLogoParamSchema>;
 
 export async function uploadAvatar(req: Request, res: Response) {
   if (!req.file) throw new AppError(400, "No file provided");
@@ -53,12 +58,10 @@ export async function getCvUrl(req: Request, res: Response) {
 export async function uploadCompanyLogo(req: Request, res: Response) {
   if (!req.file) throw new AppError(400, "No file provided");
 
-  const companyId = req.params.companyId;
+  const { companyId } = getValidatedParams<CompanyLogoParams>(req);
 
   const company = await getCompanyById(companyId);
-  if (req.user!.role !== "admin" && company.ownerId !== req.user!.id) {
-    throw new AppError(403, "You do not own this company");
-  }
+  await assertCanManage(company, req.user!);
 
   const ext = mimeToExt(req.file.mimetype);
   const objectName = `companies/${companyId}/logo.${ext}`;
@@ -66,7 +69,7 @@ export async function uploadCompanyLogo(req: Request, res: Response) {
   // Upload + commit first — only delete the old logo once the new one
   // is confirmed live, so a failure never leaves the company logo-less.
   const url = await uploadPublicFile(req.file.buffer, objectName, req.file.mimetype);
-  const updated = await updateCompanyLogo(req.user!, companyId, url);
+  const updated = await setCompanyLogo(companyId, url);
 
   if (company.logoUrl && company.logoUrl !== url) {
     const oldObjectName = company.logoUrl.split(`/${PUBLIC_BUCKET}/`)[1];
