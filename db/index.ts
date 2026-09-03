@@ -8,3 +8,4 @@ export * from "./schema/savedJobs";
 export * from "./schema/userSkills";
 export * from "./schema/workExperience";
 export * from "./schema/notifications";
+export * from "./schema/skillsCatalog";

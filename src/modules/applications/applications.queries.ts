@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "../../../db/client";
 import { applications, jobs, companies, users, type Application } from "../../../db";
 import { AppError } from "../../lib/AppError";
+import { getSignedUrl } from "../../lib/minio";
 import { enqueueApplicationStatusNotification } from "../../lib/queue";
 import { insertNotification } from "../notifications/notifications.queries";
 import type {
@@ -17,6 +18,19 @@ import { assertCanManage, type RequestingUser } from "../companies/companies.que
  * - Applicant must have a resume, either supplied here or on their profile
  * - Duplicate applications are rejected with a clean 409 (unique constraint backs this up at the DB level)
  */
+/**
+ * `applications.resumeUrl` (and its source, `users.cvUrl`) stores a MinIO
+ * *private-bucket object key* (e.g. "cv/<userId>/resume.pdf"), not a
+ * fetchable URL — CVs live in the private bucket, so callers need a
+ * time-limited signed URL to actually open one. A value that's already an
+ * absolute URL (e.g. an applicant-supplied external link) is passed through
+ * unchanged, so this stays correct either way.
+ */
+async function resolveResumeUrl(resumeUrl: string): Promise<string> {
+  if (/^https?:\/\//.test(resumeUrl)) return resumeUrl;
+  return getSignedUrl(resumeUrl);
+}
+
 export async function applyToJob(
   applicantId: string,
   input: ApplyToJobInput
@@ -105,18 +119,20 @@ export async function getMyApplications(userId: string): Promise<ApplicationWith
     .innerJoin(companies, eq(jobs.companyId, companies.id))
     .where(eq(applications.userId, userId));
 
-  return rows.map((r) => ({
-    id: r.id,
-    status: r.status,
-    coverLetter: r.coverLetter,
-    resumeUrl: r.resumeUrl,
-    createdAt: r.createdAt,
-    job: {
-      id: r.jobId,
-      title: r.jobTitle,
-      company: { id: r.companyId, name: r.companyName },
-    },
-  }));
+  return Promise.all(
+    rows.map(async (r) => ({
+      id: r.id,
+      status: r.status,
+      coverLetter: r.coverLetter,
+      resumeUrl: await resolveResumeUrl(r.resumeUrl),
+      createdAt: r.createdAt,
+      job: {
+        id: r.jobId,
+        title: r.jobTitle,
+        company: { id: r.companyId, name: r.companyName },
+      },
+    }))
+  );
 }
 
 export async function getApplicationById(id: string): Promise<Application> {
@@ -205,22 +221,24 @@ export async function getApplicationsForJob(
     .innerJoin(users, eq(applications.userId, users.id))
     .where(eq(applications.jobId, jobId));
 
-  return rows.map((r) => ({
-    id: r.id,
-    status: r.status,
-    coverLetter: r.coverLetter,
-    resumeUrl: r.resumeUrl,
-    employerNotes: r.employerNotes,
-    createdAt: r.createdAt,
-    applicant: {
-      id: r.applicantId,
-      firstName: r.firstName,
-      lastName: r.lastName,
-      email: r.email,
-      phone: r.phone,
-      profilePictureUrl: r.profilePictureUrl,
-    },
-  }));
+  return Promise.all(
+    rows.map(async (r) => ({
+      id: r.id,
+      status: r.status,
+      coverLetter: r.coverLetter,
+      resumeUrl: await resolveResumeUrl(r.resumeUrl),
+      employerNotes: r.employerNotes,
+      createdAt: r.createdAt,
+      applicant: {
+        id: r.applicantId,
+        firstName: r.firstName,
+        lastName: r.lastName,
+        email: r.email,
+        phone: r.phone,
+        profilePictureUrl: r.profilePictureUrl,
+      },
+    }))
+  );
 }
 
 export async function updateApplicationStatus(

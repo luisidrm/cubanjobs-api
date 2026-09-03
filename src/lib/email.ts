@@ -5,7 +5,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 // Resend's shared sandbox sender — works with zero setup, but only delivers
 // to the email address on the Resend account itself. Swap EMAIL_FROM once a
 // sending domain is verified; no code change needed.
-const EMAIL_FROM = process.env.EMAIL_FROM ?? "Cuban Jobs <onboarding@resend.dev>";
+const EMAIL_FROM = process.env.EMAIL_FROM ?? "Brujula <onboarding@resend.dev>";
 
 interface SendEmailInput {
   to: string;

@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, boolean, index, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, uuid, varchar, text, boolean, index, pgEnum, timestamp } from "drizzle-orm/pg-core";
 import { users } from "./users";
 import { timestamps } from "../helpers";
 
@@ -41,6 +41,16 @@ export const companies = pgTable(
     isVerified: boolean("is_verified").notNull().default(false),
 
     planTier: companyPlanEnum("plan_tier").notNull().default("free"),
+
+    stripeCustomerId: text("stripe_customer_id").unique(),
+
+    stripeSubscriptionId: text("stripe_subscription_id"),
+
+    // Raw Stripe status strings (active/past_due/canceled/...) rather than a
+    // custom enum, so this never drifts from whatever Stripe actually sends.
+    stripeSubscriptionStatus: text("stripe_subscription_status"),
+
+    currentPeriodEnd: timestamp("current_period_end"),
 
     ...timestamps,
   },

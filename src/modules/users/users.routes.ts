@@ -8,8 +8,10 @@ import {
   deleteMe,
   searchWorkersHandler,
   getSkillsList,
+  completeOnboardingHandler,
 } from "./users.controller";
 import { requireAuth, requireRole } from "../../middleware/auth";
+import { requireSearchAccess } from "../../middleware/plan";
 import { validateBody, validateParams, validateQuery } from "../../middleware/validate";
 import {
   updateUserSchema,
@@ -25,6 +27,7 @@ const router = Router();
 // dynamic param route and fail uuid validation instead of resolving here.
 router.get("/me", requireAuth, getMe);
 router.delete("/me", requireAuth, deleteMe);
+router.post("/me/onboarding/complete", requireAuth, completeOnboardingHandler);
 router.post("/me/skills", requireAuth, validateBody(addSkillSchema), addMySkill);
 router.delete(
   "/me/skills/:skillId",
@@ -38,6 +41,7 @@ router.get(
   "/workers",
   requireAuth,
   requireRole("employer"),
+  requireSearchAccess,
   validateQuery(workerSearchQuerySchema),
   searchWorkersHandler
 );

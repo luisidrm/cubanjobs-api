@@ -1,7 +1,8 @@
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "../../../db/client";
-import { jobs, jobTags, companies, type Job } from "../../../db";
+import { jobs, jobTags, companies, type Job, type Company } from "../../../db";
 import { AppError } from "../../lib/AppError";
+import { getPlanJobLimit } from "../../lib/plans";
 import type { CreateJobInput, UpdateJobInput } from "./jobs.schemas";
 import { assertCanManage, getCompanyById, type RequestingUser } from "../companies/companies.queries";
 
@@ -158,6 +159,26 @@ export async function getJobWithCompanyById(id: string): Promise<JobWithCompany>
   };
 }
 
+export async function countActiveJobsByCompany(companyId: string): Promise<number> {
+  const [row] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(jobs)
+    .where(and(eq(jobs.companyId, companyId), eq(jobs.status, "active")));
+  return Number(row?.count ?? 0);
+}
+
+async function assertUnderActiveJobLimit(company: { id: string; planTier: Company["planTier"] }): Promise<void> {
+  const limit = getPlanJobLimit(company.planTier);
+  if (limit === null) return;
+  const activeCount = await countActiveJobsByCompany(company.id);
+  if (activeCount >= limit) {
+    throw new AppError(
+      403,
+      `Your ${company.planTier} plan allows up to ${limit} active job posts. Upgrade to post more.`
+    );
+  }
+}
+
 export async function incrementViewCount(id: string): Promise<void> {
   await db
     .update(jobs)
@@ -184,7 +205,10 @@ export async function getJobsByCompany(
 }
 
 export async function createJob(user: RequestingUser, input: CreateJobInput): Promise<Job> {
-  await assertOwnsCompany(user, input.companyId);
+  const company = await assertOwnsCompany(user, input.companyId);
+  if (input.status === "active") {
+    await assertUnderActiveJobLimit(company);
+  }
   const [job] = await db.insert(jobs).values(input).returning();
   if (!job) throw new AppError(500, "Failed to create job");
   return job;
@@ -196,7 +220,10 @@ export async function updateJob(
   input: UpdateJobInput
 ): Promise<Job> {
   const job = await getJobById(jobId);
-  await assertOwnsCompany(user, job.companyId);
+  const company = await assertOwnsCompany(user, job.companyId);
+  if (input.status === "active" && job.status !== "active") {
+    await assertUnderActiveJobLimit(company);
+  }
   const [updated] = await db.update(jobs).set(input).where(eq(jobs.id, jobId)).returning();
   if (!updated) throw new AppError(500, "Failed to update job");
   return updated;

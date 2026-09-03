@@ -20,6 +20,10 @@ import savedJobsRoutes from "./modules/savedJobs/savedJobs.routes";
 import workExperienceRoutes from "./modules/workExperience/workExperience.routes";
 import tagsRoutes from "./modules/tags/tags.routes";
 import notificationsRoutes from "./modules/notifications/notifications.routes";
+import billingRoutes from "./modules/billing/billing.routes";
+import billingWebhookRoutes from "./modules/billing/billing.webhookRoutes";
+import adminRoutes from "./modules/admin/admin.routes";
+import skillsCatalogRoutes from "./modules/skillsCatalog/skillsCatalog.routes";
 
 initSupertokens();
 
@@ -57,6 +61,12 @@ app.use(helmet());
 // Handles all /auth/* routes (signup, signin, signout, session refresh, etc.)
 app.use(stMiddleware());
 
+// Must be registered BEFORE express.json() below — Stripe's webhook
+// signature verification requires the exact raw request body bytes, not the
+// re-serialized object express.json() would produce. First per-route
+// body-parser override in this codebase; keep it ahead of the global parser.
+app.use("/api/v1/billing/webhook", express.raw({ type: "application/json" }), billingWebhookRoutes);
+
 app.use(compression());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -82,6 +92,9 @@ app.use("/api/v1/applications", applicationsRoutes);
 app.use("/api/v1/saved-jobs", savedJobsRoutes);
 app.use("/api/v1/tags", tagsRoutes);
 app.use("/api/v1/notifications", notificationsRoutes);
+app.use("/api/v1/billing", billingRoutes);
+app.use("/api/v1/admin", adminRoutes);
+app.use("/api/v1/skills-catalog", skillsCatalogRoutes);
 
 app.use(notFoundHandler);
 

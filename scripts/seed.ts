@@ -14,11 +14,14 @@ import {
   savedJobs,
   applications,
   workExperience,
+  skillsCatalog,
 } from "../db";
+import { SKILLS_CATALOG } from "./seedData/skillsCatalog";
 
 const EMPLOYER_EMAIL = process.env.SEED_EMPLOYER_EMAIL ?? "employer@cubanjobs.dev";
 const EMPLOYEE_EMAIL = process.env.SEED_EMPLOYEE_EMAIL ?? "employee@cubanjobs.dev";
 const APPLICANT_EMAIL = "riosluisdaniel195@gmail.com";
+const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL ?? "admin@cubanjobs.dev";
 const SEED_PASSWORD = process.env.SEED_PASSWORD ?? "ChangeMe123!";
 
 supertokens.init({
@@ -28,7 +31,7 @@ supertokens.init({
     ...(process.env.SUPERTOKENS_API_KEY ? { apiKey: process.env.SUPERTOKENS_API_KEY } : {}),
   },
   appInfo: {
-    appName: "Cuban Jobs",
+    appName: "Brújula",
     apiDomain: process.env.API_DOMAIN ?? "http://localhost:5000",
     websiteDomain: process.env.WEBSITE_DOMAIN ?? "http://localhost:5173",
     apiBasePath: "/auth",
@@ -78,10 +81,11 @@ async function seed() {
       phone: "+53 5555 1234",
       bio: "Hiring manager at a growing logistics company.",
       location: "Havana, Cuba",
+      onboardingCompletedAt: new Date(),
     })
     .onConflictDoUpdate({
       target: users.email,
-      set: { supertokensUserId: employerStId },
+      set: { supertokensUserId: employerStId, onboardingCompletedAt: new Date() },
     })
     .returning();
   if (!employer) throw new Error("Failed to seed employer user");
@@ -99,10 +103,11 @@ async function seed() {
       bio: "Backend developer looking for remote opportunities.",
       location: "Santiago de Cuba, Cuba",
       cvUrl: "profiles/seed-employee/cv.pdf", // placeholder object path, no real file uploaded
+      onboardingCompletedAt: new Date(),
     })
     .onConflictDoUpdate({
       target: users.email,
-      set: { supertokensUserId: employeeStId },
+      set: { supertokensUserId: employeeStId, onboardingCompletedAt: new Date() },
     })
     .returning();
   if (!employee) throw new Error("Failed to seed employee user");
@@ -122,15 +127,35 @@ async function seed() {
       location: "Havana, Cuba",
       linkedinUrl: "https://linkedin.com/in/luisdanielrios",
       cvUrl: "profiles/seed-applicant/cv.pdf", // placeholder object path, no real file uploaded
+      onboardingCompletedAt: new Date(),
     })
     .onConflictDoUpdate({
       target: users.email,
-      set: { supertokensUserId: applicantStId },
+      set: { supertokensUserId: applicantStId, onboardingCompletedAt: new Date() },
     })
     .returning();
   if (!applicant) throw new Error("Failed to seed applicant user");
 
-  console.log(`✅ users: employer(${employer.id}), employee(${employee.id}), applicant(${applicant.id})`);
+  const adminStId = await ensureSuperTokensUser(ADMIN_EMAIL, SEED_PASSWORD);
+  const [admin] = await db
+    .insert(users)
+    .values({
+      supertokensUserId: adminStId,
+      email: ADMIN_EMAIL,
+      role: "admin",
+      isVerified: true,
+      firstName: "Admin",
+      lastName: "Brújula",
+      onboardingCompletedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: users.email,
+      set: { supertokensUserId: adminStId, onboardingCompletedAt: new Date() },
+    })
+    .returning();
+  if (!admin) throw new Error("Failed to seed admin user");
+
+  console.log(`✅ users: employer(${employer.id}), employee(${employee.id}), applicant(${applicant.id}), admin(${admin.id})`);
 
   // ---------- companies ----------
   const [company] = await db
@@ -294,10 +319,18 @@ async function seed() {
     .onConflictDoNothing({ target: [userSkills.userId, userSkills.skill] });
   console.log(`✅ userSkills: +2 rows (applicant)`);
 
+  // ---------- skills catalog ----------
+  await db
+    .insert(skillsCatalog)
+    .values(SKILLS_CATALOG.map((name) => ({ name })))
+    .onConflictDoNothing({ target: skillsCatalog.name });
+  console.log(`✅ skillsCatalog: ${SKILLS_CATALOG.length} entries`);
+
   console.log("\n🌱 Seed complete.");
   console.log(`   Employer login: ${EMPLOYER_EMAIL} / ${SEED_PASSWORD}`);
   console.log(`   Employee login: ${EMPLOYEE_EMAIL} / ${SEED_PASSWORD}`);
   console.log(`   Applicant login: ${APPLICANT_EMAIL} / ${SEED_PASSWORD}`);
+  console.log(`   Admin login: ${ADMIN_EMAIL} / ${SEED_PASSWORD}`);
 }
 
 seed()

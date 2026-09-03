@@ -28,6 +28,7 @@ export interface OwnUserProfile {
   cvUrl: string | null;
   linkedinUrl: string | null;
   expoPushToken: string | null;
+  onboardingCompletedAt: Date | null;
   skills: { id: string; skill: string; yearsExperience: number | null }[];
   experience: {
     id: string;
@@ -144,9 +145,17 @@ export async function getMyProfile(userId: string): Promise<OwnUserProfile> {
     cvUrl: user.cvUrl,
     linkedinUrl: user.linkedinUrl,
     expoPushToken: user.expoPushToken,
+    onboardingCompletedAt: user.onboardingCompletedAt,
     skills,
     experience,
   };
+}
+
+export async function completeOnboarding(userId: string): Promise<void> {
+  await db
+    .update(users)
+    .set({ onboardingCompletedAt: new Date() })
+    .where(eq(users.id, userId));
 }
 
 export async function addSkill(userId: string, input: AddSkillInput) {

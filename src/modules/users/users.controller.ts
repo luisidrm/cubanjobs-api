@@ -9,6 +9,7 @@ import {
   deleteOwnAccount,
   searchWorkers,
   getDistinctSkills,
+  completeOnboarding,
 } from "./users.queries";
 import { getValidatedParams, getValidatedQuery } from "../../middleware/validate";
 import { AppError } from "../../lib/AppError";
@@ -44,6 +45,11 @@ export async function removeMySkill(req: Request, res: Response) {
 export async function deleteMe(req: Request, res: Response) {
   const user = await getUserById(req.user!.id);
   await deleteOwnAccount(user);
+  res.status(204).send();
+}
+
+export async function completeOnboardingHandler(req: Request, res: Response) {
+  await completeOnboarding(req.user!.id);
   res.status(204).send();
 }
 

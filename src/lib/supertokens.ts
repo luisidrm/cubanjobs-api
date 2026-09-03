@@ -6,6 +6,7 @@ import { createUserProfile } from "../modules/users/users.queries";
 import { AppError } from "./AppError";
 import { sendEmail, buildAppLink } from "./email";
 import type { UserRole } from "../../db/schema/users";
+import { buildVerificationEmailHtml } from "./emailTemplate";
 
 /**
  * Deletes an orphaned SuperTokens user (signup succeeded but our app-level
@@ -13,7 +14,7 @@ import type { UserRole } from "../../db/schema/users";
  * SuperTokens account with no matching `users` row, which breaks every
  * subsequent login via requireAuth's getUserBySupertokensId lookup.
  */
-async function rollbackSuperTokensUser(userId: string): Promise<void> {
+export async function rollbackSuperTokensUser(userId: string): Promise<void> {
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
       await supertokens.deleteUser(userId);
@@ -39,7 +40,7 @@ export function initSupertokens() {
       ...(process.env.SUPERTOKENS_API_KEY ? { apiKey: process.env.SUPERTOKENS_API_KEY } : {}),
     },
     appInfo: {
-      appName: "Cuban Jobs",
+      appName: "Brújula",
       apiDomain: process.env.API_DOMAIN ?? "http://localhost:5000",
       ...(websiteDomain ? { websiteDomain } : {}),
       apiBasePath: "/auth",
@@ -66,7 +67,7 @@ export function initSupertokens() {
 
               await sendEmail({
                 to: input.user.email,
-                subject: "Reset your Cuban Jobs password",
+                subject: "Reset your Brújula password",
                 html: `<p>Someone requested a password reset for this email.</p>
                   <p><a href="${link}">Tap here to set a new password</a></p>
                   <p>If you didn't request this, you can ignore this email.</p>`,
@@ -105,7 +106,13 @@ export function initSupertokens() {
                     err
                   );
                   await rollbackSuperTokensUser(response.user.id);
-                  throw new AppError(500, "Failed to complete registration. Please try again.");
+                  // Retrying with the SAME email is always safe here, whether or
+                  // not the rollback above actually succeeded — a different email
+                  // would create a second orphan if it silently did succeed.
+                  throw new AppError(
+                    500,
+                    "We couldn't finish setting up your account. Please wait a moment and try again with the same email — if it still fails, contact support rather than trying a different email."
+                  );
                 }
 
                 // Fire-and-forget: don't fail signup if the verification email
@@ -134,20 +141,19 @@ export function initSupertokens() {
           override: (originalImplementation) => ({
             ...originalImplementation,
             sendEmail: async (input) => {
-              if (input.type !== "EMAIL_VERIFICATION") {
-                return originalImplementation.sendEmail(input);
+              if (input.type === "EMAIL_VERIFICATION") {
+                const verificationUrl = input.emailVerifyLink; // SuperTokens ya te da el link armado
+
+                await sendEmail({
+                  to: input.user.email,
+                  subject: "Verifica tu correo - Brújula",
+                  html: buildVerificationEmailHtml(verificationUrl),
+                });
+                return;
               }
 
-              const token = new URL(input.emailVerifyLink).searchParams.get("token") ?? "";
-              const link = buildAppLink("/verify-email", { token });
-
-              await sendEmail({
-                to: input.user.email,
-                subject: "Verify your Cuban Jobs email",
-                html: `<p>Welcome to Cuban Jobs!</p>
-                  <p><a href="${link}">Tap here to verify your email</a></p>`,
-              });
-            },
+              await originalImplementation.sendEmail(input);
+            }
           }),
         },
       }),

@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, boolean, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, uuid, varchar, text, boolean, timestamp, pgEnum } from "drizzle-orm/pg-core";
 import { timestamps } from "../helpers";
 
 export const userRoleEnum = pgEnum("user_role", ["employer", "employee", "admin"]);
@@ -31,6 +31,8 @@ export const users = pgTable("users", {
   linkedinUrl: text("linkedin_url"),
 
   expoPushToken: text("expo_push_token"),
+
+  onboardingCompletedAt: timestamp("onboarding_completed_at"),
 
   ...timestamps,
 });
