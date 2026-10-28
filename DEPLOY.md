@@ -147,7 +147,8 @@ Console: **App Runner → Create service → Container registry → Amazon ECR**
   - `MINIO_ENDPOINT=s3.<your-region>.amazonaws.com`, `MINIO_PORT=443`, `MINIO_USE_SSL=true`, `MINIO_REGION=<your-region>`
   - `MINIO_PUBLIC_BUCKET=cuban-jobs-public-<suffix>`, `MINIO_PRIVATE_BUCKET=cuban-jobs-private-<suffix>`
   - `MINIO_PUBLIC_URL=https://cuban-jobs-public-<suffix>.s3.<your-region>.amazonaws.com`
-  - `REDIS_URL` = `redis://<elasticache-endpoint>:6379` (or `rediss://` if you enabled in-transit encryption)
+  - `REDIS_URL` = `redis://<elasticache-endpoint>:6379` (or `rediss://` if you enabled in-transit encryption). Also holds the rate-limit counters, so every API instance shares them
+  - `STRIPE_ENABLED=false` (Stripe is hidden; see the Stripe section below)
 - Environment variables (from Secrets Manager — reference each secret's ARN):
   - `DATABASE_URL` ← `cuban-jobs/database-url`
   - `SUPERTOKENS_API_KEY` ← `cuban-jobs/supertokens-api-key`
@@ -170,6 +171,49 @@ docker run --rm \
 ```
 
 Run this again after every deploy that includes a new migration.
+
+## 10. Web app (Next.js)
+
+The web app lives in the `front` repo and runs on either target. Both need the same four values:
+
+| Variable | When | Notes |
+| --- | --- | --- |
+| `NEXT_PUBLIC_API_BASE_URL` | **build** | The API's public URL, e.g. `https://api.example.com`. Baked into the browser bundle, so changing it means rebuilding. |
+| `NEXT_PUBLIC_SITE_URL` | **build** | The web app's own public URL. |
+| `SUPERTOKENS_CORE_URL` | runtime | The SuperTokens core URL from step 7. Used by the server-side route guard (`proxy.ts`), never sent to the browser. |
+| `SUPERTOKENS_API_KEY` | runtime | Same value as the core's `API_KEYS`. Keep it in a secret store. |
+
+Optional: `NEXT_PUBLIC_STRIPE_ENABLED` (build-time, default `false`) shows Stripe checkout and the billing portal. Leave it off while Stripe is hidden, and keep `STRIPE_ENABLED` off on the API too.
+
+**Option A: AWS App Runner (same as the API).** Build and push the image, passing the build-time values:
+
+```
+docker build -t brujula-web \
+  --build-arg NEXT_PUBLIC_API_BASE_URL=https://api.example.com \
+  --build-arg NEXT_PUBLIC_SITE_URL=https://example.com \
+  front
+```
+
+Push it to ECR (as in step 4), create an App Runner service for it with port `3000`, health check path `/`, and the two runtime variables above. It does **not** need the VPC connector; it only talks to the public API and to the SuperTokens core URL.
+
+**Option B: Vercel.** Import the `front` repository, set all four variables in the project settings (the first two are used at build time), and deploy. No Dockerfile is used.
+
+Whichever you choose, set the API's `WEBSITE_DOMAIN` to the web app's public origin so CORS and emailed links point at it. Keep the web app and the API on subdomains of the same registrable domain (for example `app.example.com` and `api.example.com`). SuperTokens then issues same-site cookies. On unrelated domains it has to fall back to `SameSite=None`, which needs HTTPS and is increasingly blocked by browsers (Safari in particular), so sessions become unreliable.
+
+## 11. Mobile app (Expo / EAS)
+
+Identity: bundle ID and Android package `com.luisidrm.brujula`, URL scheme `brujula`.
+
+1. `eas build:configure` once, then set the API URL for each build profile in `mobile/eas.json` (`EXPO_PUBLIC_API_URL`). Release builds **refuse to start** if it is missing, still a `REPLACE_WITH_...` placeholder, or points at localhost, so a wrong value fails loudly instead of shipping an app that talks to nothing.
+2. `eas build --platform android --profile production` (AAB for Google Play) and `--platform ios --profile production`. Use `--profile preview` for an installable APK to test with.
+3. `eas submit` uses the `submit` section of `eas.json`. Fill in the Play service-account key path and the App Store Connect app ID first.
+4. The EAS project is still registered under the slug `mobile`. Changing the slug in `app.json` requires renaming the project on expo.dev first, otherwise EAS refuses to build.
+
+**Emailed links (password reset, email verification).** For the mobile app the API builds these from `APP_DOMAIN`. A custom scheme such as `brujula://` is not clickable in Gmail and most mail apps, so before launch use an `https://` link that opens the app (Android App Links and iOS Universal Links), or send mobile users through a web page that redirects to `brujula://`. This is not set up yet.
+
+## Stripe
+
+Stripe is hidden for now. The checkout and portal endpoints answer `404` unless `STRIPE_ENABLED=true`; the web and mobile screens hide the Stripe buttons unless their own flags are on. Payments go through Transfermóvil approved by an admin. To bring Stripe back, turn on all three flags together and configure the `STRIPE_*` keys and webhook.
 
 ## Updating a deployment
 

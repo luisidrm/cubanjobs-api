@@ -10,14 +10,14 @@ import type { CreateCheckoutSessionInput, CreatePortalSessionInput } from "./bil
 // Stripe Checkout / the Billing Portal redirect back into the app via one of
 // two fixed URLs, chosen by the client's declared platform — never a
 // client-supplied URL, so this can't be abused as an open redirect. Native
-// uses app.json's "mobile://" deep link scheme; web uses the same origin
+// uses app.json's "brujula://" deep link scheme; web uses the same origin
 // this Expo web app is actually served from (APP_DOMAIN, already the
 // canonical env var for that — see its use in app.ts's CORS allowlist).
 function billingReturnUrl(platform: "web" | "native" | undefined): string {
   if (platform === "web") {
     return `${process.env.APP_DOMAIN ?? "http://localhost:8081"}/billing`;
   }
-  return "mobile://billing";
+  return "brujula://billing";
 }
 
 const PRICE_ID_TO_PLAN: Record<string, CompanyPlan> = {

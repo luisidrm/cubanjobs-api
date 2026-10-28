@@ -37,6 +37,7 @@
 		"minio": "^8.0.7",
 		"multer": "^2.2.0",
 		"pg": "^8.21.0",
+		"rate-limit-redis": "^6.0.2",
 		"resend": "^6.18.1",
 		"stripe": "^22.5.0",
 		"supertokens-node": "^24.0.2",
