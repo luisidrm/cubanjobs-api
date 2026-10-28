@@ -4,6 +4,11 @@ import { timestamps } from "../helpers";
 
 export const notificationTypeEnum = pgEnum("notification_type", [
   "application_status_changed",
+  "plan_expiring",
+  "plan_expired",
+  "payment_approved",
+  "payment_rejected",
+  "team_member_joined",
 ]);
 
 export const notifications = pgTable(

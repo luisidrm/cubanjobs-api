@@ -47,7 +47,7 @@ router.get(
 );
 router.get("/skills", requireAuth, requireRole("employer"), getSkillsList);
 
-router.get("/:id", validateParams(userIdParamSchema), getProfile);
+router.get("/:id", requireAuth, validateParams(userIdParamSchema), getProfile);
 
 router.patch(
   "/:id",

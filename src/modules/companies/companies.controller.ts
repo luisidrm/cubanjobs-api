@@ -2,13 +2,16 @@ import type { Request, Response } from "express";
 import {
   createCompany,
   getCompanyById,
-  getCompaniesByOwner,
+  getMyCompaniesWithRole,
+  toPublicCompany,
+  countOpenJobs,
+  searchCompanies,
   updateCompany,
   deleteCompany,
 } from "./companies.queries";
-import { getValidatedParams } from "../../middleware/validate";
+import { getValidatedParams, getValidatedQuery } from "../../middleware/validate";
 import type { z } from "zod";
-import type { companyIdParamSchema } from "./companies.schemas";
+import type { companyIdParamSchema, companySearchQuerySchema } from "./companies.schemas";
 
 type CompanyIdParams = z.infer<typeof companyIdParamSchema>;
 
@@ -20,11 +23,11 @@ export async function create(req: Request, res: Response) {
 export async function getById(req: Request, res: Response) {
   const { id } = getValidatedParams<CompanyIdParams>(req);
   const company = await getCompanyById(id);
-  res.status(200).json({ success: true, data: company });
+  res.status(200).json({ success: true, data: toPublicCompany(company, await countOpenJobs(id)) });
 }
 
 export async function getMyCompanies(req: Request, res: Response) {
-  const data = await getCompaniesByOwner(req.user!.id);
+  const data = await getMyCompaniesWithRole(req.user!);
   res.status(200).json({ success: true, data });
 }
 
@@ -38,4 +41,9 @@ export async function remove(req: Request, res: Response) {
   const { id } = getValidatedParams<CompanyIdParams>(req);
   await deleteCompany(req.user!, id);
   res.status(204).send();
+}
+
+export async function list(req: Request, res: Response) {
+  const filters = getValidatedQuery<z.infer<typeof companySearchQuerySchema>>(req);
+  res.status(200).json({ success: true, data: await searchCompanies(filters) });
 }

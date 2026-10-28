@@ -10,6 +10,7 @@ export interface JobSearchFilters {
   q?: string;
   isRemote?: boolean;
   location?: string;
+  companyId?: string;
   currency?: string;
   jobType?: string;
   tagIds?: string[];
@@ -28,6 +29,7 @@ export interface JobWithCompany {
   jobType: Job["jobType"];
   isRemote: boolean;
   viewCount: number;
+  coverImageUrl: string | null;
   createdAt: Date;
   company: { id: string; name: string; logoUrl: string | null };
 }
@@ -42,6 +44,7 @@ export async function searchJobs(filters: JobSearchFilters): Promise<JobWithComp
   }
   if (filters.isRemote !== undefined) conditions.push(eq(jobs.isRemote, filters.isRemote));
   if (filters.location) conditions.push(eq(jobs.location, filters.location));
+  if (filters.companyId) conditions.push(eq(jobs.companyId, filters.companyId));
   if (filters.currency) conditions.push(eq(jobs.currency, filters.currency as "CUP" | "MLC" | "USD"));
   if (filters.jobType) {
     conditions.push(
@@ -75,6 +78,7 @@ export async function searchJobs(filters: JobSearchFilters): Promise<JobWithComp
       jobType: jobs.jobType,
       isRemote: jobs.isRemote,
       viewCount: jobs.viewCount,
+      coverImageUrl: jobs.coverImageUrl,
       createdAt: jobs.createdAt,
       companyId: companies.id,
       companyName: companies.name,
@@ -97,6 +101,7 @@ export async function searchJobs(filters: JobSearchFilters): Promise<JobWithComp
     jobType: r.jobType,
     isRemote: r.isRemote,
     viewCount: r.viewCount,
+    coverImageUrl: r.coverImageUrl,
     createdAt: r.createdAt,
     company: { id: r.companyId, name: r.companyName, logoUrl: r.companyLogoUrl },
   }));
@@ -132,6 +137,7 @@ export async function getJobWithCompanyById(id: string): Promise<JobWithCompany>
       jobType: jobs.jobType,
       isRemote: jobs.isRemote,
       viewCount: jobs.viewCount,
+      coverImageUrl: jobs.coverImageUrl,
       createdAt: jobs.createdAt,
       companyId: companies.id,
       companyName: companies.name,
@@ -154,6 +160,7 @@ export async function getJobWithCompanyById(id: string): Promise<JobWithCompany>
     jobType: row.jobType,
     isRemote: row.isRemote,
     viewCount: row.viewCount,
+    coverImageUrl: row.coverImageUrl,
     createdAt: row.createdAt,
     company: { id: row.companyId, name: row.companyName, logoUrl: row.companyLogoUrl },
   };
@@ -168,7 +175,7 @@ export async function countActiveJobsByCompany(companyId: string): Promise<numbe
 }
 
 async function assertUnderActiveJobLimit(company: { id: string; planTier: Company["planTier"] }): Promise<void> {
-  const limit = getPlanJobLimit(company.planTier);
+  const limit = await getPlanJobLimit(company.planTier);
   if (limit === null) return;
   const activeCount = await countActiveJobsByCompany(company.id);
   if (activeCount >= limit) {

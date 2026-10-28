@@ -1,9 +1,9 @@
 import { Router } from "express";
 import multer from "multer";
-import { uploadAvatar, uploadCv, getCvUrl, uploadCompanyLogo } from "./uploads.controller";
+import { uploadAvatar, uploadCv, getCvUrl, uploadCompanyLogo, uploadJobImage, deleteJobImage } from "./uploads.controller";
 import { requireAuth, requireRole } from "../../middleware/auth";
 import { validateParams } from "../../middleware/validate";
-import { companyLogoParamSchema } from "./uploads.schema";
+import { companyLogoParamSchema, jobImageParamSchema } from "./uploads.schema";
 import { AppError } from "../../lib/AppError";
 
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -47,6 +47,23 @@ router.post(
   validateParams(companyLogoParamSchema),
   imageUpload.single("file"),
   uploadCompanyLogo
+);
+
+router.post(
+  "/job-image/:jobId",
+  requireAuth,
+  requireRole("employer", "admin"),
+  validateParams(jobImageParamSchema),
+  imageUpload.single("file"),
+  uploadJobImage
+);
+
+router.delete(
+  "/job-image/:jobId",
+  requireAuth,
+  requireRole("employer", "admin"),
+  validateParams(jobImageParamSchema),
+  deleteJobImage
 );
 
 export default router;

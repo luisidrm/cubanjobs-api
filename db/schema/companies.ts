@@ -1,5 +1,5 @@
 import { pgTable, uuid, varchar, text, boolean, index, pgEnum, timestamp } from "drizzle-orm/pg-core";
-import { users } from "./users";
+import { users, planSourceEnum } from "./users";
 import { timestamps } from "../helpers";
 
 export const employeeCountEnum = pgEnum("employee_count", [
@@ -51,6 +51,14 @@ export const companies = pgTable(
     stripeSubscriptionStatus: text("stripe_subscription_status"),
 
     currentPeriodEnd: timestamp("current_period_end"),
+
+    /** Transfermóvil / manual plans: when the paid tier ends. null on a paid tier = no expiry. */
+    planExpiresAt: timestamp("plan_expires_at"),
+
+    planSource: planSourceEnum("plan_source").notNull().default("none"),
+
+    /** When the "expiring soon" reminder went out for the current period. */
+    planReminderSentAt: timestamp("plan_reminder_sent_at"),
 
     ...timestamps,
   },

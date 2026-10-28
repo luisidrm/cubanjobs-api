@@ -58,6 +58,9 @@ export const jobs = pgTable(
 
     expiresAt: timestamp("expires_at"),
 
+    /** Optional cover photo (MinIO URL); cards fall back to the company logo. */
+    coverImageUrl: text("cover_image_url"),
+
     viewCount: integer("view_count").notNull().default(0),
 
     ...timestamps,

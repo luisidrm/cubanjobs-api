@@ -6,7 +6,8 @@ import { ensureBucket, ensureBuckets } from "./lib/minio";
 // Starting the BullMQ notification queue/worker is a side effect of this
 // import. Its own Redis connections handle unreachable-Redis non-fatally
 // internally (see lib/queue.ts) — nothing to await or catch here.
-import { closeNotificationQueue } from "./lib/queue";
+import { closeNotificationQueue, startPlanMaintenance } from "./lib/queue";
+import { runPlanMaintenance } from "./modules/subscriptions/planMaintenance";
 
 const PORT = Number(process.env.PORT) || 3000;
 
@@ -26,6 +27,11 @@ async function start() {
     console.warn("⚠️  MinIO not available:", (err as Error).message);
     // Non-fatal on startup — uploads will fail at request time if MinIO is down
   }
+
+  // Daily at 09:00 Havana: warn accounts about to expire, downgrade lapsed ones.
+  void startPlanMaintenance(async () => {
+    await runPlanMaintenance();
+  });
 
   const server = app.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);

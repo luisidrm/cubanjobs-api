@@ -11,7 +11,15 @@ export const pool = new Pool({
   // Tune these once you have real traffic patterns; these are sane
   // starting points for a single small API instance.
   max: Number(process.env.DATABASE_POOL_MAX ?? 10),
-  idleTimeoutMillis: 30_000,
+  // Short idle/lifetime limits: on Windows, Docker Desktop / WSL's port relay
+  // silently drops long-lived idle TCP connections, leaving dead sockets in
+  // the pool that then fail every request with "Connection terminated
+  // unexpectedly". Recycling connections often avoids ever handing one out.
+  idleTimeoutMillis: 10_000,
+  maxLifetimeSeconds: 300,
+  // TCP keepalive keeps the relay from treating a quiet connection as dead.
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10_000,
   connectionTimeoutMillis: 5_000,
   // Managed Postgres (RDS, etc.) requires SSL — local Docker Postgres doesn't
   // support it, so this stays off unless explicitly opted into via env var.

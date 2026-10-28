@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import { eq } from "drizzle-orm";
 import type { z } from "zod";
 import { db } from "../../../db/client";
-import { users } from "../../../db";
+import { jobs, users } from "../../../db";
 import {
   uploadPublicFile,
   uploadPrivateFile,
@@ -14,8 +14,10 @@ import {
 import { setCompanyLogo, getCompanyById, assertCanManage } from "../companies/companies.queries";
 import { AppError } from "../../lib/AppError";
 import { getValidatedParams } from "../../middleware/validate";
-import type { companyLogoParamSchema } from "./uploads.schema";
+import { getJobById } from "../jobs/jobs.queries";
+import type { companyLogoParamSchema, jobImageParamSchema } from "./uploads.schema";
 
+type JobImageParams = z.infer<typeof jobImageParamSchema>;
 type CompanyLogoParams = z.infer<typeof companyLogoParamSchema>;
 
 export async function uploadAvatar(req: Request, res: Response) {
@@ -75,6 +77,43 @@ export async function uploadCompanyLogo(req: Request, res: Response) {
     const oldObjectName = company.logoUrl.split(`/${PUBLIC_BUCKET}/`)[1];
     if (oldObjectName) await deletePublicFile(oldObjectName).catch(() => null);
   }
+
+  res.status(200).json({ success: true, data: updated });
+}
+
+/** Public bucket object name from a stored URL, or null if it isn't one of ours. */
+function objectNameFromUrl(url: string | null): string | null {
+  return url?.split(`/${PUBLIC_BUCKET}/`)[1] ?? null;
+}
+
+export async function uploadJobImage(req: Request, res: Response) {
+  if (!req.file) throw new AppError(400, "No file provided");
+
+  const { jobId } = getValidatedParams<JobImageParams>(req);
+  const job = await getJobById(jobId);
+  await assertCanManage(await getCompanyById(job.companyId), req.user!);
+
+  // A fresh name per upload so apps/CDNs never serve the previous image from cache.
+  const ext = mimeToExt(req.file.mimetype);
+  const objectName = `jobs/${jobId}/cover-${Date.now()}.${ext}`;
+
+  const url = await uploadPublicFile(req.file.buffer, objectName, req.file.mimetype);
+  const [updated] = await db.update(jobs).set({ coverImageUrl: url }).where(eq(jobs.id, jobId)).returning();
+
+  const old = objectNameFromUrl(job.coverImageUrl);
+  if (old) await deletePublicFile(old).catch(() => null);
+
+  res.status(200).json({ success: true, data: updated });
+}
+
+export async function deleteJobImage(req: Request, res: Response) {
+  const { jobId } = getValidatedParams<JobImageParams>(req);
+  const job = await getJobById(jobId);
+  await assertCanManage(await getCompanyById(job.companyId), req.user!);
+
+  const [updated] = await db.update(jobs).set({ coverImageUrl: null }).where(eq(jobs.id, jobId)).returning();
+  const old = objectNameFromUrl(job.coverImageUrl);
+  if (old) await deletePublicFile(old).catch(() => null);
 
   res.status(200).json({ success: true, data: updated });
 }

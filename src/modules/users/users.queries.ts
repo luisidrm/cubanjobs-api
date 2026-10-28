@@ -29,6 +29,9 @@ export interface OwnUserProfile {
   linkedinUrl: string | null;
   expoPushToken: string | null;
   onboardingCompletedAt: Date | null;
+  /** Employee plan: "paid" unlocks applying. planExpiresAt null on paid = no expiry. */
+  plan: User["plan"];
+  planExpiresAt: Date | null;
   skills: { id: string; skill: string; yearsExperience: number | null }[];
   experience: {
     id: string;
@@ -42,12 +45,14 @@ export interface OwnUserProfile {
 }
 
 /**
- * Strips fields that shouldn't be exposed on the public profile endpoint.
- * `phone`/`linkedinUrl`/`skills`/`experience` are treated as public, same
- * tier as the rest of a resume's contents — the one field kept out even
- * here is each experience entry's `contact` (see the map below).
+ * Strips fields that shouldn't be exposed on the profile endpoint.
+ * `linkedinUrl`/`skills`/`experience` are treated as public to any signed-in
+ * user, same tier as the rest of a resume's contents. `phone` is only shown
+ * to the owner, employers (so they can contact applicants) and admins; other
+ * employees get `null`. Each experience entry's `contact` is never exposed.
  */
-export async function toPublicUser(user: User) {
+export async function toPublicUser(user: User, viewer: { id: string; role: User["role"] }) {
+  const canSeePhone = viewer.id === user.id || viewer.role === "employer" || viewer.role === "admin";
   const [skills, experience] = await Promise.all([
     db
       .select({ id: userSkills.id, skill: userSkills.skill, yearsExperience: userSkills.yearsExperience })
@@ -73,7 +78,7 @@ export async function toPublicUser(user: User) {
     firstName: user.firstName,
     lastName: user.lastName,
     bio: user.bio,
-    phone: user.phone,
+    phone: canSeePhone ? user.phone : null,
     location: user.location,
     profilePictureUrl: user.profilePictureUrl,
     linkedinUrl: user.linkedinUrl,
@@ -146,6 +151,8 @@ export async function getMyProfile(userId: string): Promise<OwnUserProfile> {
     linkedinUrl: user.linkedinUrl,
     expoPushToken: user.expoPushToken,
     onboardingCompletedAt: user.onboardingCompletedAt,
+    plan: user.plan,
+    planExpiresAt: user.planExpiresAt,
     skills,
     experience,
   };

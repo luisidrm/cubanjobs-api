@@ -1,13 +1,16 @@
 import { Router } from "express";
-import { create, getById, getMyCompanies, update, remove } from "./companies.controller";
+import { create, getById, list, getMyCompanies, update, remove } from "./companies.controller";
 import { requireAuth, requireRole, requireVerifiedEmail } from "../../middleware/auth";
-import { validateBody, validateParams } from "../../middleware/validate";
-import { createCompanySchema, updateCompanySchema, companyIdParamSchema } from "./companies.schemas";
+import { validateBody, validateParams, validateQuery } from "../../middleware/validate";
+import { createCompanySchema, updateCompanySchema, companyIdParamSchema, companySearchQuerySchema } from "./companies.schemas";
 
 const router = Router();
 
 // Any authenticated employer can list their own companies
 router.get("/my", requireAuth, requireRole("employer"), getMyCompanies);
+
+// Public company directory (before "/:id")
+router.get("/", validateQuery(companySearchQuerySchema), list);
 
 // Public: anyone can view a company profile
 router.get("/:id", validateParams(companyIdParamSchema), getById);

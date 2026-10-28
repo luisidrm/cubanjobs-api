@@ -2,6 +2,9 @@ import type { NextFunction, Request, Response } from "express";
 import { verifySession } from "supertokens-node/recipe/session/framework/express";
 import type { SessionRequest } from "supertokens-node/framework/express";
 import EmailVerification from "supertokens-node/recipe/emailverification";
+import { eq } from "drizzle-orm";
+import { db } from "../../db/client";
+import { users, type User } from "../../db";
 import { getUserBySupertokensId } from "../modules/users/users.queries";
 import { AppError } from "../lib/AppError";
 import type { UserRole } from "../../db/schema/users";
@@ -12,6 +15,27 @@ declare global {
       user?: { id: string; email: string; role: UserRole };
     }
   }
+}
+
+/** At most one last-seen write per user per platform per hour. */
+const PLATFORM_TOUCH_MS = 60 * 60 * 1000;
+
+/**
+ * Records which client (the x-platform header both apps send) the user is on,
+ * for the admin metrics. Best effort and off the request path: a failed write
+ * must never fail the request.
+ */
+function touchPlatform(req: Request, user: User) {
+  const header = req.header("x-platform");
+  const column = header === "web" ? "webLastSeenAt" : header === "native" ? "appLastSeenAt" : null;
+  if (!column) return;
+  const last = user[column];
+  if (last && Date.now() - last.getTime() < PLATFORM_TOUCH_MS) return;
+  db.update(users)
+    // updatedAt is passed through so a heartbeat does not look like a profile edit.
+    .set({ [column]: new Date(), updatedAt: user.updatedAt })
+    .where(eq(users.id, user.id))
+    .catch(() => null);
 }
 
 /**
@@ -35,6 +59,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
     try {
       const user = await getUserBySupertokensId(stId);
       req.user = { id: user.id, email: user.email, role: user.role };
+      touchPlatform(req, user);
       next();
     } catch (e) {
       // Covers the orphaned-user edge case: a valid session exists but no

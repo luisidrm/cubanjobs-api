@@ -93,3 +93,64 @@ export function buildVerificationEmailHtml(verificationUrl: string): string {
 </body>
 </html>`;
 }
+/** Escapes text before it is placed inside email HTML (company names, admin-written reasons). */
+export function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+export interface PlanEmailSection {
+  heading: string;
+  body: string;
+}
+
+/**
+ * Plan expiry / renewal email, written in Spanish first and English second so
+ * one message works for everyone (accounts don't store a language yet).
+ */
+export function buildPlanEmailHtml(sections: [PlanEmailSection, PlanEmailSection], ctaLabel: string, ctaUrl: string): string {
+  const year = new Date().getFullYear();
+  const block = (s: PlanEmailSection, last: boolean) => `
+              <h1 style="margin:0 0 8px 0; font-size:20px; color:#12211d;">${s.heading}</h1>
+              <p style="margin:0 0 ${last ? "8" : "22"}px 0; font-size:15px; line-height:1.6; color:#4a5c57;">${s.body}</p>`;
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Brújula</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f5f4ef; font-family: Arial, Helvetica, sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f4ef; padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="background-color:#ffffff; border-radius:16px; overflow:hidden;">
+          <tr>
+            <td align="center" style="background-color:#0f6e62; padding:24px;">
+              <span style="color:#ffffff; font-size:22px; font-weight:bold; letter-spacing:-0.5px;">Brújula</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px 32px 12px 32px;">${block(sections[0], false)}${block(sections[1], true)}
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:8px 32px 32px 32px;">
+              <a href="${ctaUrl}" style="background-color:#0f6e62; color:#ffffff; text-decoration:none; font-size:15px; font-weight:bold; padding:14px 32px; border-radius:999px; display:inline-block;">${ctaLabel}</a>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:0 32px 28px 32px; font-size:12px; color:#7c8c86;">&copy; ${year} Brújula</td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}

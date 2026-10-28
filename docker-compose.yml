@@ -28,7 +28,12 @@ services:
       POSTGRESQL_CONNECTION_URI: postgresql://postgres:${POSTGRES_PASSWORD_URLENCODED}@postgres:5432/jobs
       API_KEYS: ${SUPERTOKENS_API_KEY}
     ports:
-      - "3567:3567"
+      # Host port 43567, not 3567: Windows reserves dynamic TCP ranges
+      # (3555-3654 at the time of writing; check with `netsh interface ipv4
+      # show excludedportrange protocol=tcp`) and Docker silently fails to
+      # bind inside them. The container still listens on 3567 internally,
+      # which is why the healthcheck below is unchanged.
+      - "43567:3567"
     healthcheck:
       test: >
         bash -c 'exec 3<>/dev/tcp/127.0.0.1/3567 && echo -e "GET /hello HTTP/1.1\r\nhost: 127.0.0.1:3567\r\nConnection: close\r\n\r\n" >&3 && cat <&3 | grep "Hello"'
@@ -40,7 +45,9 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      # Host port 46379, not 6379: Windows reserves 6281-6380 (see the note on the
+      # supertokens port above). The container still listens on 6379 internally.
+      - "46379:6379"
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes

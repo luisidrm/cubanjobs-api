@@ -43,6 +43,7 @@ export const jobSearchQuerySchema = z.object({
     .optional()
     .transform((val) => (val === undefined ? undefined : val === "true")),
   location: z.string().optional(),
+  companyId: z.uuidv4().optional(),
   currency: z.enum(currencyValues).optional(),
   jobType: z.enum(jobTypeValues).optional(),
   tagIds: z

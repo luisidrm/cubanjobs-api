@@ -8,6 +8,7 @@ import {
   withdraw,
 } from "./applications.controller";
 import { requireAuth, requireRole, requireVerifiedEmail } from "../../middleware/auth";
+import { requirePaidEmployee } from "../../middleware/plan";
 import { validateBody, validateParams } from "../../middleware/validate";
 import {
   applyToJobSchema,
@@ -24,6 +25,7 @@ router.post(
   requireAuth,
   requireRole("employee"),
   requireVerifiedEmail,
+  requirePaidEmployee,
   validateBody(applyToJobSchema),
   apply
 );

@@ -28,7 +28,7 @@ export async function getMe(req: Request, res: Response) {
 export async function getProfile(req: Request, res: Response) {
   const { id } = getValidatedParams<UserIdParams>(req);
   const user = await getUserById(id);
-  res.status(200).json({ success: true, data: await toPublicUser(user) });
+  res.status(200).json({ success: true, data: await toPublicUser(user, req.user!) });
 }
 
 export async function addMySkill(req: Request, res: Response) {

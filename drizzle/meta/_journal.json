@@ -64,6 +64,34 @@
       "when": 1788131782987,
       "tag": "0008_perpetual_timeslip",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791324837739,
+      "tag": "0009_transfermovil_payments",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791350726953,
+      "tag": "0010_company_teams",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792446087785,
+      "tag": "0011_freelancer_posts",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793221806377,
+      "tag": "0012_platform_tracking",
+      "breakpoints": true
     }
   ]
 }

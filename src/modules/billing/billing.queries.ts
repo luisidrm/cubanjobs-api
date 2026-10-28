@@ -4,7 +4,7 @@ import { db } from "../../../db/client";
 import { companies, type Company, type CompanyPlan } from "../../../db";
 import { AppError } from "../../lib/AppError";
 import { stripe, STRIPE_PRICE_IDS } from "../../lib/stripe";
-import { assertCanManage, getCompanyById, type RequestingUser } from "../companies/companies.queries";
+import { assertCompanyOwner, getCompanyById, type RequestingUser } from "../companies/companies.queries";
 import type { CreateCheckoutSessionInput, CreatePortalSessionInput } from "./billing.schemas";
 
 // Stripe Checkout / the Billing Portal redirect back into the app via one of
@@ -52,7 +52,7 @@ export async function createCheckoutSession(
   input: CreateCheckoutSessionInput
 ): Promise<{ url: string }> {
   const company = await getCompanyById(input.companyId);
-  await assertCanManage(company, user);
+  await assertCompanyOwner(company, user);
 
   const customerId = await getOrCreateStripeCustomer(company, userEmail);
 
@@ -74,7 +74,7 @@ export async function createPortalSession(
   input: CreatePortalSessionInput
 ): Promise<{ url: string }> {
   const company = await getCompanyById(input.companyId);
-  await assertCanManage(company, user);
+  await assertCompanyOwner(company, user);
 
   if (!company.stripeCustomerId) {
     throw new AppError(400, "No billing account for this company yet");
@@ -108,6 +108,10 @@ export async function applyCheckoutCompleted(session: Stripe.Checkout.Session): 
       stripeSubscriptionId: subscription.id,
       stripeSubscriptionStatus: subscription.status,
       currentPeriodEnd: currentPeriodEndOf(subscription),
+      // Stripe now owns the plan: the Transfermóvil expiry job must leave it alone.
+      planSource: "stripe",
+      planExpiresAt: null,
+      planReminderSentAt: null,
     })
     .where(eq(companies.id, companyId));
 }
@@ -140,6 +144,8 @@ export async function applySubscriptionUpdated(subscription: Stripe.Subscription
       planTier,
       stripeSubscriptionStatus: subscription.status,
       currentPeriodEnd: currentPeriodEndOf(subscription),
+      planSource: planTier === "free" ? "none" : "stripe",
+      planExpiresAt: null,
     })
     .where(eq(companies.id, companyId));
 }
@@ -153,6 +159,6 @@ export async function applySubscriptionDeleted(subscription: Stripe.Subscription
 
   await db
     .update(companies)
-    .set({ planTier: "free", stripeSubscriptionStatus: "canceled" })
+    .set({ planTier: "free", stripeSubscriptionStatus: "canceled", planSource: "none", planExpiresAt: null })
     .where(eq(companies.id, companyId));
 }

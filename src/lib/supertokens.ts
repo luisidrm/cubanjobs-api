@@ -9,6 +9,17 @@ import type { UserRole } from "../../db/schema/users";
 import { buildVerificationEmailHtml } from "./emailTemplate";
 
 /**
+ * Reads the caller's platform off the `x-platform` header the frontend sends
+ * on every request (see front/src/lib/baseQuery.ts, mobile/src/lib/baseQuery.ts).
+ * Used to pick which app domain emailed links (password reset, email
+ * verification) should point at. Defaults to native so behavior is unchanged
+ * for any caller that doesn't send the header.
+ */
+function readPlatform(req: { getHeaderValue: (key: string) => string | undefined }): "web" | "native" {
+  return req.getHeaderValue("x-platform") === "web" ? "web" : "native";
+}
+
+/**
  * Deletes an orphaned SuperTokens user (signup succeeded but our app-level
  * profile row failed to create). Retries once — the alternative is a
  * SuperTokens account with no matching `users` row, which breaks every
@@ -61,9 +72,10 @@ export function initSupertokens() {
 
               // SuperTokens builds passwordResetLink against appInfo.websiteDomain,
               // which isn't a real hosted page here — extract just the token and
-              // point the email at the mobile app's own deep-linkable route instead.
+              // point the email at the right app's own route instead. platform
+              // comes from generatePasswordResetTokenPOST below via userContext.
               const token = new URL(input.passwordResetLink).searchParams.get("token") ?? "";
-              const link = buildAppLink("/reset-password", { token });
+              const link = buildAppLink("/reset-password", { token }, input.userContext.platform);
 
               await sendEmail({
                 to: input.user.email,
@@ -82,6 +94,18 @@ export function initSupertokens() {
           // read here before delegating to the original implementation.
           apis: (originalImpl) => ({
             ...originalImpl,
+            // Stashes platform into userContext so the PASSWORD_RESET
+            // sendEmail override above (which no longer has access to the
+            // live request) knows which app domain to link to.
+            generatePasswordResetTokenPOST: async (input) => {
+              if (!originalImpl.generatePasswordResetTokenPOST) {
+                throw new Error(
+                  "generatePasswordResetTokenPOST is not available on the original implementation"
+                );
+              }
+              input.userContext.platform = readPlatform(input.options.req);
+              return originalImpl.generatePasswordResetTokenPOST(input);
+            },
             signUpPOST: async (input) => {
               if (!originalImpl.signUpPOST) {
                 throw new Error("signUpPOST is not available on the original implementation");
@@ -116,11 +140,15 @@ export function initSupertokens() {
                 }
 
                 // Fire-and-forget: don't fail signup if the verification email
-                // can't be sent, the user can request a new one later.
+                // can't be sent, the user can request a new one later. Platform
+                // rides along in userContext for the EMAIL_VERIFICATION
+                // sendEmail override below to pick the right app domain.
                 EmailVerification.sendEmailVerificationEmail(
                   input.tenantId,
                   response.user.id,
-                  response.user.loginMethods[0]!.recipeUserId
+                  response.user.loginMethods[0]!.recipeUserId,
+                  undefined,
+                  { platform: readPlatform(input.options.req) }
                 ).catch((err) => {
                   console.error("Failed to send verification email after signup:", err);
                 });
@@ -142,7 +170,13 @@ export function initSupertokens() {
             ...originalImplementation,
             sendEmail: async (input) => {
               if (input.type === "EMAIL_VERIFICATION") {
-                const verificationUrl = input.emailVerifyLink; // SuperTokens ya te da el link armado
+                // input.emailVerifyLink is built against appInfo.websiteDomain,
+                // which isn't a real hosted page here — extract just the token
+                // and point the email at the right app's own route instead,
+                // same as the PASSWORD_RESET override above. platform rides
+                // along via userContext, set in signUpPOST.
+                const token = new URL(input.emailVerifyLink).searchParams.get("token") ?? "";
+                const verificationUrl = buildAppLink("/verify-email", { token }, input.userContext.platform);
 
                 await sendEmail({
                   to: input.user.email,

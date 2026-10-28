@@ -11,6 +11,7 @@ export interface SavedJobWithDetails {
     title: string;
     location: string | null;
     isRemote: boolean;
+    coverImageUrl: string | null;
     salaryMin: number | null;
     salaryMax: number | null;
     currency: string | null;
@@ -44,6 +45,7 @@ export async function getMySavedJobs(userId: string): Promise<SavedJobWithDetail
       title: jobs.title,
       location: jobs.location,
       isRemote: jobs.isRemote,
+      coverImageUrl: jobs.coverImageUrl,
       salaryMin: jobs.salaryMin,
       salaryMax: jobs.salaryMax,
       currency: jobs.currency,
@@ -64,6 +66,7 @@ export async function getMySavedJobs(userId: string): Promise<SavedJobWithDetail
       title: r.title,
       location: r.location,
       isRemote: r.isRemote,
+      coverImageUrl: r.coverImageUrl,
       salaryMin: r.salaryMin,
       salaryMax: r.salaryMax,
       currency: r.currency,
