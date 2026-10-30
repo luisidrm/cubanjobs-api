@@ -31,6 +31,7 @@ Node.js ESM + TypeScript + Express 5 API for the Cuban Jobs platform. Postgres v
 | `npm run db:generate` | Generates a new Drizzle migration from schema changes in `db/schema/`. |
 | `npm run db:migrate` | Applies pending migrations. |
 | `npm run seed` | Populates the database with sample users/jobs for local testing. |
+| `npm run db:seed-skills` | Loads or refreshes the skills catalog and its Spanish names. Needed on every new database, including production. |
 
 ## Deploying
 

@@ -14,9 +14,8 @@ import {
   savedJobs,
   applications,
   workExperience,
-  skillsCatalog,
 } from "../db";
-import { SKILLS_CATALOG } from "./seedData/skillsCatalog";
+import { seedSkillsCatalog } from "./seedSkillsCatalog";
 
 const EMPLOYER_EMAIL = process.env.SEED_EMPLOYER_EMAIL ?? "employer@cubanjobs.dev";
 const EMPLOYEE_EMAIL = process.env.SEED_EMPLOYEE_EMAIL ?? "employee@cubanjobs.dev";
@@ -320,11 +319,7 @@ async function seed() {
   console.log(`✅ userSkills: +2 rows (applicant)`);
 
   // ---------- skills catalog ----------
-  await db
-    .insert(skillsCatalog)
-    .values(SKILLS_CATALOG.map((name) => ({ name })))
-    .onConflictDoNothing({ target: skillsCatalog.name });
-  console.log(`✅ skillsCatalog: ${SKILLS_CATALOG.length} entries`);
+  console.log(`✅ skillsCatalog: ${await seedSkillsCatalog()} entries`);
 
   console.log("\n🌱 Seed complete.");
   console.log(`   Employer login: ${EMPLOYER_EMAIL} / ${SEED_PASSWORD}`);

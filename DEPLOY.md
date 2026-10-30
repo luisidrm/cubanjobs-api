@@ -172,6 +172,8 @@ docker run --rm \
 
 Run this again after every deploy that includes a new migration.
 
+Then load the skills catalog (English names plus their Spanish names) once, with the same image and variables but the command `npm run db:seed-skills`. It is safe to repeat and also refreshes the Spanish names after an update.
+
 ## 10. Web app (Next.js)
 
 The web app lives in the `front` repo and runs on either target. Both need the same four values:

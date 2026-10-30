@@ -1,7 +1,7 @@
-import { and, eq, ilike, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import supertokens from "supertokens-node";
 import { db } from "../../../db/client";
-import { users, userSkills, workExperience, companyMembers, type User } from "../../../db";
+import { users, userSkills, skillsCatalog, workExperience, companyMembers, type User } from "../../../db";
 import { AppError } from "../../lib/AppError";
 import type { UpdateUserInput, AddSkillInput, WorkerSearchQuery } from "./users.schemas";
 
@@ -165,13 +165,32 @@ export async function completeOnboarding(userId: string): Promise<void> {
     .where(eq(users.id, userId));
 }
 
+/**
+ * Maps what the user typed to the catalog's canonical (English) name when it matches
+ * either language, ignoring case: "camarero", "Camarero" and "waiter" all become
+ * "Waiter". Anything not in the catalog is kept as typed. Storing one canonical name
+ * is what keeps a skill from splitting into several chips in the employer search.
+ */
+export async function canonicalSkillName(input: string): Promise<string> {
+  const text = input.trim();
+  const [hit] = await db
+    .select({ name: skillsCatalog.name })
+    .from(skillsCatalog)
+    .where(or(sql`lower(${skillsCatalog.name}) = lower(${text})`, sql`lower(${skillsCatalog.nameEs}) = lower(${text})`))
+    .limit(1);
+  return hit?.name ?? text;
+}
+
 export async function addSkill(userId: string, input: AddSkillInput) {
+  const skill = await canonicalSkillName(input.skill);
   const [row] = await db
     .insert(userSkills)
-    .values({ userId, skill: input.skill, yearsExperience: input.yearsExperience })
+    .values({ userId, skill, yearsExperience: input.yearsExperience })
     .onConflictDoUpdate({
       target: [userSkills.userId, userSkills.skill],
-      set: { yearsExperience: input.yearsExperience },
+      // With no years sent there is nothing to change: Drizzle refuses an empty SET, so
+      // re-assign the same skill name, which leaves any existing years untouched.
+      set: input.yearsExperience === undefined ? { skill } : { yearsExperience: input.yearsExperience },
     })
     .returning();
   if (!row) throw new AppError(500, "Failed to add skill");
@@ -231,12 +250,20 @@ export async function deleteOwnAccount(user: User): Promise<void> {
 /** Employer-only worker directory search. `skills` filters via per-skill EXISTS
  * subqueries against `userSkills` (mirrors `searchJobs`'s `tagIds` filter). */
 export async function searchWorkers(filters: WorkerSearchQuery): Promise<WorkerSummary[]> {
-  const conditions = [eq(users.role, "employee")];
+  // Only people with a name: accounts that signed up but never filled in a profile
+  // would show up as empty "?" cards that an employer cannot act on.
+  const conditions = [eq(users.role, "employee"), sql`btrim(coalesce(${users.firstName}, '')) <> ''`];
 
   if (filters.q) {
     const like = `%${filters.q}%`;
     conditions.push(
-      sql`(${users.firstName} ILIKE ${like} OR ${users.lastName} ILIKE ${like} OR ${users.bio} ILIKE ${like})`
+      // Also matches a skill by its English or Spanish name ("plomero" finds Plumbers).
+      sql`(${users.firstName} ILIKE ${like} OR ${users.lastName} ILIKE ${like} OR ${users.bio} ILIKE ${like} OR EXISTS (
+        SELECT 1 FROM ${userSkills}
+        LEFT JOIN ${skillsCatalog} ON ${skillsCatalog.name} = ${userSkills.skill}
+        WHERE ${userSkills.userId} = ${users.id}
+        AND (${userSkills.skill} ILIKE ${like} OR ${skillsCatalog.nameEs} ILIKE ${like})
+      ))`
     );
   }
   if (filters.location) conditions.push(ilike(users.location, `%${filters.location}%`));
@@ -263,6 +290,8 @@ export async function searchWorkers(filters: WorkerSearchQuery): Promise<WorkerS
     })
     .from(users)
     .where(and(...conditions))
+    // Stable order so offset paging never repeats or skips people.
+    .orderBy(desc(users.createdAt), users.id)
     .limit(filters.limit ?? 20)
     .offset(filters.offset ?? 0);
 

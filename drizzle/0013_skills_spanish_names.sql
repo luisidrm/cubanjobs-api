@@ -1,0 +1,1 @@
+ALTER TABLE "skills_catalog" ADD COLUMN "name_es" varchar(150);

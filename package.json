@@ -18,7 +18,8 @@
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate",
 		"db:studio": "drizzle-kit studio",
-		"seed": "tsx scripts/seed.ts"
+		"seed": "tsx scripts/seed.ts",
+		"db:seed-skills": "tsx scripts/seedSkillsCatalog.ts"
 	},
 	"dependencies": {
 		"@types/multer": "^2.2.0",

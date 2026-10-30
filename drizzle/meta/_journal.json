@@ -92,6 +92,13 @@
       "when": 1793221806377,
       "tag": "0012_platform_tracking",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793305770935,
+      "tag": "0013_skills_spanish_names",
+      "breakpoints": true
     }
   ]
 }
