@@ -3,7 +3,8 @@ import { inArray } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "../../../db/client";
 import { companies } from "../../../db";
-import { createJob, searchJobs, updateJob } from "./jobs.queries";
+import { createJob, getJobWithCompanyById, searchJobs, updateJob } from "./jobs.queries";
+import { createJobSchema } from "./jobs.schemas";
 import type { RequestingUser } from "../companies/companies.queries";
 
 const admin: RequestingUser = { id: randomUUID(), role: "admin" };
@@ -90,5 +91,37 @@ describe("job search ordering", () => {
     const seen = [...(await page(0)), ...(await page(2)), ...(await page(4))].map((j) => j.title);
 
     expect(seen).toEqual([...titles].reverse());
+  });
+});
+
+describe("job WhatsApp contact", () => {
+  const parse = (contactWhatsapp: unknown) =>
+    createJobSchema.safeParse({ companyId: randomUUID(), title: "t", description: "d", contactWhatsapp });
+
+  it("accepts a number as people type it, and treats empty as none", () => {
+    expect(parse("+53 5555 5555").success).toBe(true);
+    expect(parse("(53) 55555555").success).toBe(true);
+    const empty = parse("   ");
+    expect(empty.success && empty.data.contactWhatsapp).toBeNull();
+  });
+
+  it("rejects text that is not a phone number", () => {
+    expect(parse("call me maybe").success).toBe(false);
+    expect(parse("123").success).toBe(false);
+  });
+
+  it("shows the number on the job page but not in search results", async () => {
+    const job = await createJob(admin, {
+      companyId: proCompanyId,
+      title: "With contact",
+      description: "desc",
+      status: "active",
+      contactWhatsapp: "+53 5555 5555",
+    });
+
+    expect(await getJobWithCompanyById(job.id)).toMatchObject({ contactWhatsapp: "+53 5555 5555" });
+
+    const [listed] = await searchJobs({ companyId: proCompanyId, limit: 5 });
+    expect(listed).not.toHaveProperty("contactWhatsapp");
   });
 });

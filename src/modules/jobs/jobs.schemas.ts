@@ -12,6 +12,15 @@ export const jobStatusValues = ["draft", "active", "closed", "expired"] as const
 
 export const currencyValues = ["CUP", "MLC", "USD"] as const;
 
+// A phone number as people type it: "+53 5555 5555", "(53) 55555555", "55555555".
+// Empty means "none" (null clears it on update).
+const whatsappNumber = z
+  .string()
+  .trim()
+  .transform((v) => (v === "" ? null : v))
+  .pipe(z.string().regex(/^\+?[0-9 ()-]{6,20}$/,"Enter a valid phone number").nullable())
+  .nullable();
+
 export const createJobSchema = z.object({
   companyId: z.uuidv4(),
   title: z.string().min(1).max(255),
@@ -21,6 +30,7 @@ export const createJobSchema = z.object({
   currency: z.enum(currencyValues).optional(),
   location: z.string().max(255).optional(),
   jobType: z.enum(jobTypeValues).optional(),
+  contactWhatsapp: whatsappNumber.optional(),
   isRemote: z.boolean().optional(),
   status: z.enum(jobStatusValues).optional(),
   // Coerced to Date: the Drizzle `timestamp` column expects a Date, not the

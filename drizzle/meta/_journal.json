@@ -99,6 +99,13 @@
       "when": 1793305770935,
       "tag": "0013_skills_spanish_names",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1795465174436,
+      "tag": "0014_job_contact_whatsapp",
+      "breakpoints": true
     }
   ]
 }

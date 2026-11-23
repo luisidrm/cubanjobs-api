@@ -1,0 +1,1 @@
+ALTER TABLE "jobs" ADD COLUMN "contact_whatsapp" varchar(32);

@@ -31,6 +31,8 @@ export interface JobWithCompany {
   viewCount: number;
   coverImageUrl: string | null;
   createdAt: Date;
+  /** Only filled by the single-job lookup; list results leave it out. */
+  contactWhatsapp?: string | null;
   company: { id: string; name: string; logoUrl: string | null };
 }
 
@@ -141,6 +143,7 @@ export async function getJobWithCompanyById(id: string): Promise<JobWithCompany>
       viewCount: jobs.viewCount,
       coverImageUrl: jobs.coverImageUrl,
       createdAt: jobs.createdAt,
+      contactWhatsapp: jobs.contactWhatsapp,
       companyId: companies.id,
       companyName: companies.name,
       companyLogoUrl: companies.logoUrl,
@@ -164,6 +167,7 @@ export async function getJobWithCompanyById(id: string): Promise<JobWithCompany>
     viewCount: row.viewCount,
     coverImageUrl: row.coverImageUrl,
     createdAt: row.createdAt,
+    contactWhatsapp: row.contactWhatsapp,
     company: { id: row.companyId, name: row.companyName, logoUrl: row.companyLogoUrl },
   };
 }

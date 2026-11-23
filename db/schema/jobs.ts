@@ -52,6 +52,9 @@ export const jobs = pgTable(
 
     jobType: jobTypeEnum("job_type"),
 
+    // Optional: lets applicants message the employer directly. Shown on the public job page.
+    contactWhatsapp: varchar("contact_whatsapp", { length: 32 }),
+
     isRemote: boolean("is_remote").default(false).notNull(),
 
     status: jobStatusEnum("status").notNull().default("draft"),
