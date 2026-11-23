@@ -9,30 +9,36 @@ import { ensureBucket, ensureBuckets } from "./lib/minio";
 // internally (see lib/queue.ts) — nothing to await or catch here.
 import { closeNotificationQueue, startPlanMaintenance } from "./lib/queue";
 import { runPlanMaintenance } from "./modules/subscriptions/planMaintenance";
+import { logger } from "./lib/logger";
+import { flushSentry, initSentry } from "./lib/sentry";
 
 const PORT = Number(process.env.PORT) || 3000;
 
 async function start() {
+  if (initSentry()) logger.info("✅ Error reporting (Sentry) enabled");
+
   try {
     checkEnv();
   } catch (err) {
-    console.error("❌", (err as Error).message);
+    logger.error("❌", (err as Error).message);
+    await flushSentry();
     process.exit(1);
   }
 
   try {
     await checkDatabaseConnection();
-    console.log("✅ Database connection verified");
+    logger.info("✅ Database connection verified");
   } catch (err) {
-    console.error("❌ Failed to connect to the database:", err);
+    logger.error("❌ Failed to connect to the database:", err);
+    await flushSentry();
     process.exit(1);
   }
 
   try {
     await ensureBuckets();
-    console.log("✅ MinIO bucket ready");
+    logger.info("✅ MinIO bucket ready");
   } catch (err) {
-    console.warn("⚠️  MinIO not available:", (err as Error).message);
+    logger.warn("⚠️  MinIO not available:", (err as Error).message);
     // Non-fatal on startup — uploads will fail at request time if MinIO is down
   }
 
@@ -42,20 +48,26 @@ async function start() {
   });
 
   const server = app.listen(PORT, () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
+    logger.info(`🚀 Server running on http://localhost:${PORT}`);
   });
 
   const shutdown = async (signal: string) => {
-    console.log(`\n${signal} received, shutting down gracefully...`);
+    logger.info(`\n${signal} received, shutting down gracefully...`);
     server.close(async () => {
       await closeDatabaseConnection();
       await closeNotificationQueue();
+      await flushSentry();
       process.exit(0);
     });
   };
 
   process.on("SIGTERM", () => shutdown("SIGTERM"));
   process.on("SIGINT", () => shutdown("SIGINT"));
+
+  // A forgotten await or an unhandled rejection must show up in the logs (and Sentry), not vanish.
+  process.on("unhandledRejection", (reason) => {
+    logger.error("Unhandled promise rejection", reason instanceof Error ? reason : new Error(String(reason)));
+  });
 }
 
 start();

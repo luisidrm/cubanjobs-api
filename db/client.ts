@@ -1,6 +1,7 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import * as schema from "./index";
+import { logger } from "../src/lib/logger";
 
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is not set");
@@ -29,7 +30,7 @@ export const pool = new Pool({
 pool.on("error", (err) => {
   // Fires for idle clients that hit a backend error (e.g. connection reset).
   // Without this handler an unhandled 'error' event crashes the process.
-  console.error("Unexpected error on idle Postgres client", err);
+  logger.error("Unexpected error on idle Postgres client", err);
 });
 
 export const db = drizzle(pool, { schema });

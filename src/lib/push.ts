@@ -1,4 +1,5 @@
 import { Expo } from "expo-server-sdk";
+import { logger } from "./logger";
 
 const expo = new Expo();
 
@@ -11,7 +12,7 @@ export async function sendPushNotification(
   body: string
 ): Promise<void> {
   if (!Expo.isExpoPushToken(token)) {
-    console.warn(`⚠️  Not a valid Expo push token, skipping: ${token}`);
+    logger.warn(`⚠️  Not a valid Expo push token, skipping: ${token}`);
     return;
   }
 
@@ -20,6 +21,6 @@ export async function sendPushNotification(
   ]);
 
   if (ticket?.status === "error") {
-    console.warn(`⚠️  Push notification error: ${ticket.details?.error ?? ticket.message}`);
+    logger.warn(`⚠️  Push notification error: ${ticket.details?.error ?? ticket.message}`);
   }
 }

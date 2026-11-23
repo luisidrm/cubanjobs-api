@@ -14,6 +14,7 @@ import { buildPlanEmailHtml, escapeHtml } from "../../lib/emailTemplate";
 import { buildAppLink } from "../../lib/email";
 import { enqueuePlanNotification } from "../../lib/queue";
 import { insertNotification } from "../notifications/notifications.queries";
+import { logger } from "../../lib/logger";
 
 // ---------------------------------------------------------------------------
 // Date rules
@@ -196,7 +197,7 @@ export async function approvePayment(paymentId: string, adminId: string): Promis
         ? `Tu plan está activo hasta el ${result.expiresAt.toISOString().slice(0, 10)}. · Your plan is active until ${result.expiresAt.toISOString().slice(0, 10)}.`
         : "Tu plan está activo. · Your plan is active.",
       data: { paymentId: result.payment.id },
-    }).catch((err) => console.warn("⚠️  payment_approved notification failed:", (err as Error).message));
+    }).catch((err) => logger.warn("⚠️  payment_approved notification failed:", (err as Error).message));
     const until = result.expiresAt ? result.expiresAt.toISOString().slice(0, 10) : null;
     await sendOutcomeMessage(
       result.payment.userId,
@@ -207,7 +208,7 @@ export async function approvePayment(paymentId: string, adminId: string): Promis
         { heading: "Pago aprobado", body: until ? `Verificamos tu transferencia. Tu plan está activo hasta el <strong>${until}</strong>.` : "Verificamos tu transferencia. Tu plan está activo." },
         { heading: "Payment approved", body: until ? `We verified your transfer. Your plan is active until <strong>${until}</strong>.` : "We verified your transfer. Your plan is active." },
       ]
-    ).catch((err) => console.warn("⚠️  payment_approved message failed:", (err as Error).message));
+    ).catch((err) => logger.warn("⚠️  payment_approved message failed:", (err as Error).message));
   }
 
   return result;
@@ -235,7 +236,7 @@ export async function rejectPayment(paymentId: string, adminId: string, reason: 
       title: "Pago rechazado · Payment rejected",
       body: `${reason} Puedes enviar el pago de nuevo. · You can submit the payment again.`,
       data: { paymentId: rejected.id },
-    }).catch((err) => console.warn("⚠️  payment_rejected notification failed:", (err as Error).message));
+    }).catch((err) => logger.warn("⚠️  payment_rejected notification failed:", (err as Error).message));
     await sendOutcomeMessage(
       rejected.userId,
       rejected.payerEmail,
@@ -245,7 +246,7 @@ export async function rejectPayment(paymentId: string, adminId: string, reason: 
         { heading: "Pago rechazado", body: `No pudimos confirmar tu transferencia: ${escapeHtml(reason)} Puedes enviar el pago de nuevo desde la app.` },
         { heading: "Payment rejected", body: `We couldn't confirm your transfer: ${escapeHtml(reason)} You can submit the payment again from the app.` },
       ]
-    ).catch((err) => console.warn("⚠️  payment_rejected message failed:", (err as Error).message));
+    ).catch((err) => logger.warn("⚠️  payment_rejected message failed:", (err as Error).message));
   }
 
   return rejected;

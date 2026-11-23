@@ -22,6 +22,7 @@
 		"db:seed-skills": "tsx scripts/seedSkillsCatalog.ts"
 	},
 	"dependencies": {
+		"@sentry/node": "^11.17.0",
 		"@types/multer": "^2.2.0",
 		"bcrypt": "^6.0.0",
 		"bullmq": "^5.80.1",

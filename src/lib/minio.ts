@@ -1,5 +1,6 @@
 import { Client } from "minio";
 import { Readable } from "stream";
+import { logger } from "./logger";
 
 // The insecure local-dev fallbacks below must never silently apply in
 // production — fail loudly at startup instead of uploading through weak
@@ -34,7 +35,7 @@ export async function ensureBucket(bucket: string, publicRead: boolean): Promise
   const exists = await minioClient.bucketExists(bucket);
   if (!exists) {
     await minioClient.makeBucket(bucket);
-    console.log(`✅ MinIO bucket '${bucket}' created`);
+    logger.info(`✅ MinIO bucket '${bucket}' created`);
   }
 
   if (publicRead) {

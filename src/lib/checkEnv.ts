@@ -1,3 +1,4 @@
+import { logger } from "./logger";
 /**
  * Fails fast at boot when production is missing configuration, instead of
  * surfacing as a 500 on the first request that needs it (an upload, a
@@ -18,7 +19,7 @@ const REQUIRED_IN_PRODUCTION = [
 ] as const;
 
 // Present in every environment, but only worth a warning when absent.
-const RECOMMENDED = ["SUPERTOKENS_API_KEY", "APP_DOMAIN"] as const;
+const RECOMMENDED = ["SUPERTOKENS_API_KEY", "APP_DOMAIN", "SENTRY_DSN"] as const;
 
 export function checkEnv(env: NodeJS.ProcessEnv = process.env): void {
   const missing = REQUIRED_IN_PRODUCTION.filter((key) => !env[key]?.trim());
@@ -37,6 +38,6 @@ export function checkEnv(env: NodeJS.ProcessEnv = process.env): void {
 
   const unset = RECOMMENDED.filter((key) => !env[key]?.trim());
   if (unset.length > 0) {
-    console.warn(`⚠️  Not set (optional): ${unset.join(", ")}`);
+    logger.warn(`⚠️  Not set (optional): ${unset.join(", ")}`);
   }
 }

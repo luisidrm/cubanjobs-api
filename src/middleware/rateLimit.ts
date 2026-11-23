@@ -1,6 +1,7 @@
 import Redis from "ioredis";
 import { rateLimit } from "express-rate-limit";
 import { RedisStore } from "rate-limit-redis";
+import { logger } from "../lib/logger";
 
 // Counters live in Redis when REDIS_URL is set, so every API instance shares
 // them (with in-memory counters, N instances would allow N times the limit).
@@ -26,7 +27,7 @@ function redisClient(): Redis {
       // ioredis emits on every failed reconnect; one line a minute is enough.
       if (Date.now() - lastWarn < 60_000) return;
       lastWarn = Date.now();
-      console.warn("⚠️  Rate-limit Redis error (limits not enforced):", err.message || err.code);
+      logger.warn("⚠️  Rate-limit Redis error (limits not enforced):", err.message || err.code);
     });
   }
   return client;

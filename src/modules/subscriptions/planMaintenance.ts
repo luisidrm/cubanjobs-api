@@ -6,6 +6,7 @@ import { buildAppLink } from "../../lib/email";
 import { enqueuePlanNotification } from "../../lib/queue";
 import { insertNotification } from "../notifications/notifications.queries";
 import { getSettings } from "../plans/plans.queries";
+import { logger } from "../../lib/logger";
 
 // Plans paid through Transfermóvil (or set by hand) end by themselves.
 // Stripe-managed plans are renewed or cancelled by Stripe's webhooks instead.
@@ -93,7 +94,7 @@ async function notifyRecipient(r: Recipient, n: Notice): Promise<void> {
       data: { planName: n.planName, expiresAt: n.expiresAt.toISOString() },
     });
   } catch (err) {
-    console.warn("⚠️  Plan notification insert failed:", (err as Error).message);
+    logger.warn("⚠️  Plan notification insert failed:", (err as Error).message);
   }
 
   await enqueuePlanNotification({
@@ -294,7 +295,7 @@ export async function downgradeExpiredPlans(now = new Date()): Promise<number> {
 export async function runPlanMaintenance(now = new Date()): Promise<MaintenanceReport> {
   const downgraded = await downgradeExpiredPlans(now);
   const reminded = await sendExpiryReminders(now);
-  console.log(`🗓️  Plan maintenance: ${reminded} reminded, ${downgraded} downgraded`);
+  logger.info(`🗓️  Plan maintenance: ${reminded} reminded, ${downgraded} downgraded`);
   return { reminded, downgraded };
 }
 

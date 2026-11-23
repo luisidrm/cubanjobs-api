@@ -6,6 +6,7 @@ import { AppError } from "../../lib/AppError";
 import { stripe, STRIPE_PRICE_IDS } from "../../lib/stripe";
 import { assertCompanyOwner, getCompanyById, type RequestingUser } from "../companies/companies.queries";
 import type { CreateCheckoutSessionInput, CreatePortalSessionInput } from "./billing.schemas";
+import { logger } from "../../lib/logger";
 
 // Stripe Checkout / the Billing Portal redirect back into the app via one of
 // two fixed URLs, chosen by the client's declared platform — never a
@@ -95,7 +96,7 @@ export async function applyCheckoutCompleted(session: Stripe.Checkout.Session): 
     typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
 
   if (!companyId || !plan || !subscriptionId) {
-    console.error("checkout.session.completed missing companyId/plan/subscription", session.id);
+    logger.error("checkout.session.completed missing companyId/plan/subscription", session.id);
     return;
   }
 
@@ -128,7 +129,7 @@ async function resolveCompanyIdFromCustomer(
 export async function applySubscriptionUpdated(subscription: Stripe.Subscription): Promise<void> {
   const companyId = await resolveCompanyIdFromCustomer(subscription.customer);
   if (!companyId) {
-    console.error("customer.subscription.updated: no companyId on customer metadata", subscription.id);
+    logger.error("customer.subscription.updated: no companyId on customer metadata", subscription.id);
     return;
   }
 
@@ -153,7 +154,7 @@ export async function applySubscriptionUpdated(subscription: Stripe.Subscription
 export async function applySubscriptionDeleted(subscription: Stripe.Subscription): Promise<void> {
   const companyId = await resolveCompanyIdFromCustomer(subscription.customer);
   if (!companyId) {
-    console.error("customer.subscription.deleted: no companyId on customer metadata", subscription.id);
+    logger.error("customer.subscription.deleted: no companyId on customer metadata", subscription.id);
     return;
   }
 

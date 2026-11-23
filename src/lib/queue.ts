@@ -2,6 +2,7 @@ import { Queue, Worker, type Job } from "bullmq";
 import Redis from "ioredis";
 import { sendEmail } from "./email";
 import { sendPushNotification } from "./push";
+import { logger } from "./logger";
 
 const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6379";
 
@@ -19,7 +20,7 @@ function createConnection() {
   // Redis being down must not crash the process — job enqueue/processing
   // just silently no-ops/retries instead of the whole API going down with it.
   connection.on("error", (err) => {
-    console.warn("⚠️  Redis connection error (notifications degraded):", describeError(err));
+    logger.warn("⚠️  Redis connection error (notifications degraded):", describeError(err));
   });
   return connection;
 }
@@ -64,7 +65,7 @@ export async function enqueueApplicationStatusNotification(
   try {
     await notificationQueue.add("application-status-changed", data);
   } catch (err) {
-    console.warn("⚠️  Failed to enqueue notification job:", (err as Error).message);
+    logger.warn("⚠️  Failed to enqueue notification job:", (err as Error).message);
   }
 }
 
@@ -75,7 +76,7 @@ export async function enqueuePlanNotification(data: PlanNotificationJob): Promis
   try {
     await notificationQueue.add("plan-notification", data);
   } catch (err) {
-    console.warn("⚠️  Failed to enqueue plan notification:", (err as Error).message);
+    logger.warn("⚠️  Failed to enqueue plan notification:", (err as Error).message);
   }
 }
 
@@ -88,7 +89,7 @@ const worker = new Worker<NotificationJob>(
         try {
           await sendPushNotification(plan.expoPushToken, plan.pushTitle, plan.pushBody);
         } catch (err) {
-          console.warn("⚠️  Push notification failed:", (err as Error).message);
+          logger.warn("⚠️  Push notification failed:", (err as Error).message);
         }
       }
       await sendEmail({ to: plan.email, subject: plan.subject, html: plan.html });
@@ -108,7 +109,7 @@ const worker = new Worker<NotificationJob>(
       try {
         await sendPushNotification(expoPushToken, subject, `Status: ${status}`);
       } catch (err) {
-        console.warn("⚠️  Push notification failed:", (err as Error).message);
+        logger.warn("⚠️  Push notification failed:", (err as Error).message);
       }
     }
 
@@ -118,7 +119,7 @@ const worker = new Worker<NotificationJob>(
 );
 
 worker.on("error", (err) => {
-  console.warn("⚠️  Notification worker error:", describeError(err));
+  logger.warn("⚠️  Notification worker error:", describeError(err));
 });
 
 // ---------------------------------------------------------------------------
@@ -145,10 +146,10 @@ export async function startPlanMaintenance(run: () => Promise<void>): Promise<vo
     );
     maintenanceWorker = new Worker(MAINTENANCE_QUEUE, async () => run(), { connection: createConnection() });
     maintenanceWorker.on("error", (err) => {
-      console.warn("⚠️  Plan maintenance worker error:", describeError(err));
+      logger.warn("⚠️  Plan maintenance worker error:", describeError(err));
     });
   } catch (err) {
-    console.warn("⚠️  Could not schedule plan maintenance:", (err as Error).message);
+    logger.warn("⚠️  Could not schedule plan maintenance:", (err as Error).message);
   }
 }
 

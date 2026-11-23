@@ -6,6 +6,7 @@ import { AppError } from "../../lib/AppError";
 import { deletePrivateFile, mimeToExt, uploadPrivateFile } from "../../lib/minio";
 import { assertCompanyOwner, getCompanyById, type RequestingUser } from "../companies/companies.queries";
 import { normalizeTransferNumber, type SubmitPaymentInput } from "./payments.schemas";
+import { logger } from "../../lib/logger";
 
 /** Max payments a user may have waiting for review at once (spam guard). */
 export const MAX_PENDING_PER_USER = 3;
@@ -93,7 +94,7 @@ export async function submitPayment(
         .where(eq(payments.id, id))
         .returning()) as [Payment];
     } catch (err) {
-      console.error("Payment screenshot upload failed:", err);
+      logger.error("Payment screenshot upload failed:", err);
       // The screenshot is optional, but a half-saved payment is worse than a
       // retry: undo the row (and any partial upload) so the user can resubmit.
       await db.delete(payments).where(eq(payments.id, id));

@@ -23,12 +23,9 @@ export async function saveJob(userId: string, jobId: string): Promise<void> {
   const [job] = await db.select().from(jobs).where(eq(jobs.id, jobId));
   if (!job) throw new AppError(404, "Job not found");
 
-  try {
-    await db.insert(savedJobs).values({ userId, jobId });
-  } catch (err: any) {
-    if (err?.code === "23505") return; // already saved — idempotent
-    throw err;
-  }
+  // Saving twice (a double tap) is not an error. Drizzle wraps driver errors, so
+  // matching the Postgres code on the thrown error never worked: let the insert skip it.
+  await db.insert(savedJobs).values({ userId, jobId }).onConflictDoNothing();
 }
 
 export async function unsaveJob(userId: string, jobId: string): Promise<void> {

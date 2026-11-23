@@ -6,6 +6,7 @@ import { AppError } from "../../lib/AppError";
 import { getPlanSeatLimit } from "../../lib/plans";
 import { insertNotification } from "../notifications/notifications.queries";
 import { assertCanManage, assertCompanyOwner, getCompanyById, isCompanyOwner, type RequestingUser } from "../companies/companies.queries";
+import { logger } from "../../lib/logger";
 
 // No 0/O/1/I/L: codes get read aloud and typed from WhatsApp messages.
 const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -169,7 +170,7 @@ export async function joinByCode(user: { id: string }, code: string) {
       });
     }
   } catch (err) {
-    console.error("Team join notification failed:", err);
+    logger.error("Team join notification failed:", err);
   }
 
   return joined;

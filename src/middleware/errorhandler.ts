@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { MulterError } from "multer";
 import { AppError } from "../lib/AppError";
+import { logger } from "../lib/logger";
 
 /** Shape of errors thrown by the `pg` driver for SQL-level failures. */
 interface PgError extends Error {
@@ -85,7 +86,7 @@ export function errorHandler(
     });
   }
 
-  console.error(err);
+  logger.error(err);
 
   return res.status(500).json({
     success: false,

@@ -7,6 +7,7 @@ import { AppError } from "./AppError";
 import { sendEmail, buildAppLink } from "./email";
 import type { UserRole } from "../../db/schema/users";
 import { buildVerificationEmailHtml } from "./emailTemplate";
+import { logger } from "./logger";
 
 /**
  * Reads the caller's platform off the `x-platform` header the frontend sends
@@ -32,7 +33,7 @@ export async function rollbackSuperTokensUser(userId: string): Promise<void> {
       return;
     } catch (rollbackErr) {
       if (attempt === 2) {
-        console.error(
+        logger.error(
           `CRITICAL: rollback of orphaned SuperTokens user ${userId} failed after retry — manual cleanup required:`,
           rollbackErr
         );
@@ -125,7 +126,7 @@ export function initSupertokens() {
                     role,
                   });
                 } catch (err) {
-                  console.error(
+                  logger.error(
                     "Failed to create user profile after signup, rolling back:",
                     err
                   );
@@ -150,7 +151,7 @@ export function initSupertokens() {
                   undefined,
                   { platform: readPlatform(input.options.req) }
                 ).catch((err) => {
-                  console.error("Failed to send verification email after signup:", err);
+                  logger.error("Failed to send verification email after signup:", err);
                 });
               }
 
