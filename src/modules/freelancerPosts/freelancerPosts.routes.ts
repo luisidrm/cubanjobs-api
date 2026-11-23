@@ -7,6 +7,7 @@ import { requireFreelancerAccess, requirePaidPoster } from "../../middleware/pla
 import { getValidatedParams, getValidatedQuery, validateBody, validateParams, validateQuery } from "../../middleware/validate";
 import { AppError } from "../../lib/AppError";
 import { PUBLIC_BUCKET, deletePublicFile, mimeToExt, uploadPublicFile } from "../../lib/minio";
+import { verifyFileSignature } from "../../middleware/fileSignature";
 import {
   addImage,
   createPost,
@@ -110,7 +111,7 @@ router.post(
   requireAuth,
   requireRole("employee", "admin"),
   validateParams(postIdParamSchema),
-  imageUpload.single("file"),
+  imageUpload.single("file"), verifyFileSignature,
   async (req, res) => {
     if (!req.file) throw new AppError(400, "No file provided");
     const { id } = getValidatedParams<IdParams>(req);

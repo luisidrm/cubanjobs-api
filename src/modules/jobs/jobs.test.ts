@@ -3,7 +3,7 @@ import { inArray } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "../../../db/client";
 import { companies } from "../../../db";
-import { createJob, updateJob } from "./jobs.queries";
+import { createJob, searchJobs, updateJob } from "./jobs.queries";
 import type { RequestingUser } from "../companies/companies.queries";
 
 const admin: RequestingUser = { id: randomUUID(), role: "admin" };
@@ -78,5 +78,17 @@ describe("active job post limit", () => {
     await expect(updateJob(admin, draft.id, { status: "active" })).rejects.toMatchObject({
       statusCode: 403,
     });
+  });
+});
+
+describe("job search ordering", () => {
+  it("lists newest first and pages without repeating or skipping jobs", async () => {
+    const titles = ["A", "B", "C", "D", "E"];
+    for (const title of titles) await postActiveJob(proCompanyId, title);
+
+    const page = (offset: number) => searchJobs({ companyId: proCompanyId, limit: 2, offset });
+    const seen = [...(await page(0)), ...(await page(2)), ...(await page(4))].map((j) => j.title);
+
+    expect(seen).toEqual([...titles].reverse());
   });
 });

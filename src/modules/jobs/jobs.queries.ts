@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "../../../db/client";
 import { jobs, jobTags, companies, type Job, type Company } from "../../../db";
 import { AppError } from "../../lib/AppError";
@@ -87,6 +87,8 @@ export async function searchJobs(filters: JobSearchFilters): Promise<JobWithComp
     .from(jobs)
     .innerJoin(companies, eq(jobs.companyId, companies.id))
     .where(and(...conditions))
+    // Newest first; id breaks ties so offset paging never repeats or skips a job.
+    .orderBy(desc(jobs.createdAt), desc(jobs.id))
     .limit(filters.limit ?? 20)
     .offset(filters.offset ?? 0);
 

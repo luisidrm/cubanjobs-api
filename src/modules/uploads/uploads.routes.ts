@@ -5,6 +5,7 @@ import { requireAuth, requireRole } from "../../middleware/auth";
 import { validateParams } from "../../middleware/validate";
 import { companyLogoParamSchema, jobImageParamSchema } from "./uploads.schema";
 import { AppError } from "../../lib/AppError";
+import { verifyFileSignature } from "../../middleware/fileSignature";
 
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const PDF_TYPE = "application/pdf";
@@ -28,13 +29,13 @@ const pdfUpload = makeUpload([PDF_TYPE], 10);
 
 const router = Router();
 
-router.post("/avatar", requireAuth, imageUpload.single("file"), uploadAvatar);
+router.post("/avatar", requireAuth, imageUpload.single("file"), verifyFileSignature, uploadAvatar);
 
 router.post(
   "/cv",
   requireAuth,
   requireRole("employee"),
-  pdfUpload.single("file"),
+  pdfUpload.single("file"), verifyFileSignature,
   uploadCv
 );
 
@@ -45,7 +46,7 @@ router.post(
   requireAuth,
   requireRole("employer", "admin"),
   validateParams(companyLogoParamSchema),
-  imageUpload.single("file"),
+  imageUpload.single("file"), verifyFileSignature,
   uploadCompanyLogo
 );
 
@@ -54,7 +55,7 @@ router.post(
   requireAuth,
   requireRole("employer", "admin"),
   validateParams(jobImageParamSchema),
-  imageUpload.single("file"),
+  imageUpload.single("file"), verifyFileSignature,
   uploadJobImage
 );
 

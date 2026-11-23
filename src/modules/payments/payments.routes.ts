@@ -5,6 +5,7 @@ import { validateBody } from "../../middleware/validate";
 import { AppError } from "../../lib/AppError";
 import { getMyPayments, submitPayment } from "./payments.queries";
 import { submitPaymentSchema, type SubmitPaymentInput } from "./payments.schemas";
+import { verifyFileSignature } from "../../middleware/fileSignature";
 
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
@@ -25,7 +26,7 @@ router.post(
   "/",
   requireAuth,
   requireRole("employee", "employer"),
-  screenshotUpload.single("screenshot"),
+  screenshotUpload.single("screenshot"), verifyFileSignature,
   validateBody(submitPaymentSchema),
   async (req, res) => {
     const payment = await submitPayment(

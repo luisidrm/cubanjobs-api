@@ -2,6 +2,7 @@ import "dotenv/config";
 
 import app from "./app";
 import { checkDatabaseConnection, closeDatabaseConnection } from "../db/client";
+import { checkEnv } from "./lib/checkEnv";
 import { ensureBucket, ensureBuckets } from "./lib/minio";
 // Starting the BullMQ notification queue/worker is a side effect of this
 // import. Its own Redis connections handle unreachable-Redis non-fatally
@@ -12,6 +13,13 @@ import { runPlanMaintenance } from "./modules/subscriptions/planMaintenance";
 const PORT = Number(process.env.PORT) || 3000;
 
 async function start() {
+  try {
+    checkEnv();
+  } catch (err) {
+    console.error("❌", (err as Error).message);
+    process.exit(1);
+  }
+
   try {
     await checkDatabaseConnection();
     console.log("✅ Database connection verified");
