@@ -11,6 +11,7 @@ Effort: S = under a day, M = 1–3 days, L = a week or more.
 - **Lists:** jobs newest first with stable paging; real offset paging ("load more" / infinite scroll) on every list in web and mobile; uploads verified by file content.
 - **SEO and web polish:** per-job title, description, canonical, share tags and schema.org JobPosting data; `sitemap.xml`, `robots.txt`, default share image; web lint at 0 errors.
 - **Confidence:** structured logger replaces every `console` call in the API; tests for saved jobs, notifications, work experience, uploads, job ordering, logger (138 API tests); fixed saving a job twice returning a 500.
+- **WhatsApp:** share button on jobs and companies (web + mobile); employers can add a WhatsApp number to a job with a "Contact on WhatsApp" button; one link helper adds Cuba's 53 to local numbers.
 - **Sentry (code ready, off until a DSN is set):** API (`SENTRY_DSN`), web (`NEXT_PUBLIC_SENTRY_DSN`), mobile (`EXPO_PUBLIC_SENTRY_DSN`). Cookies, headers and request bodies are stripped before sending.
 
 ## Still open
@@ -24,15 +25,16 @@ Effort: S = under a day, M = 1–3 days, L = a week or more.
 | 5 | Web `<img>` to `next/image` (27 lint warnings): needs the image host (MinIO / CDN) configured in `next.config.ts` once the deploy host is chosen | S |
 | 6 | Mobile: patch-version alignment (`npx expo install --fix`, six packages behind), https app links for emailed links, EAS placeholders in `eas.json`, store listings | M |
 | 7 | `minio` advisory: revisit when a non-downgrade fix ships | S |
-| 8 | Staging deploy + smoke test; decide web hosting | M |
+| 8 | Set `EXPO_PUBLIC_WEB_URL` in the mobile build profiles so shared links point at the real website | S |
+| 9 | Staging deploy + smoke test; decide web hosting | M |
 
 ## Ideas, in the order I'd build them
 
 Chosen for how people in Cuba actually use the internet: WhatsApp-first, expensive and slow data, many people without a CV, scams as the main fear.
 
 ### Growth and reach
-1. **Share on WhatsApp (S).** A share button on jobs, companies and freelancer posts with a clean link preview (needs item 2 above). Likely the cheapest growth lever.
-2. **Apply or contact by WhatsApp (S).** Employers who don't read email get a "contact on WhatsApp" option; the freelancer posts already store a WhatsApp contact.
+1. ~~**Share on WhatsApp (S).**~~ Done. A share button on jobs, companies and freelancer posts with a clean link preview (needs item 2 above). Likely the cheapest growth lever.
+2. ~~**Apply or contact by WhatsApp (S).**~~ Done for jobs. Employers who don't read email get a "contact on WhatsApp" option; the freelancer posts already store a WhatsApp contact.
 3. **Referrals (M).** "Invite a friend" link; a free week of a paid plan when they finish onboarding.
 4. **Public profile link (S).** A shareable `/u/name` page for workers and freelancers (opt-in).
 
@@ -65,7 +67,6 @@ Chosen for how people in Cuba actually use the internet: WhatsApp-first, expensi
 ## Suggested order
 
 1. Remote + push for the web repo; create the Sentry projects and set the DSNs.
-2. WhatsApp sharing and contact (ideas 1–2): small and high impact.
-3. Report button and verified companies (ideas 5–6): before opening to the public.
-4. Applicant pipeline and job alerts (ideas 8, 10): what makes people come back.
-5. Legal pages, staging deploy, store submission, then the rest by demand.
+2. Report button and verified companies (ideas 5–6): before opening to the public.
+3. Applicant pipeline and job alerts (ideas 8, 10): what makes people come back.
+4. Legal pages, staging deploy, store submission, then the rest by demand.
