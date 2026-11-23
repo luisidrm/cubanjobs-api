@@ -7,22 +7,24 @@ Effort: S = under a day, M = 1–3 days, L = a week or more.
 
 - Landing page, plans, Transfermovil payments, company teams, freelancer posts, admin metrics.
 - Mobile polish pass: inputs, permissions, translations, keyboard handling, dead code removed.
-- **Step 1 (safety net):** mobile committed; `npm audit fix` on the API (17 → 4 production vulnerabilities; the rest is `minio`, no safe upgrade); startup config check (`src/lib/checkEnv.ts`).
-- **Step 2 (lists):** jobs listed newest first with stable paging; "load more" / infinite scroll on every list in web and mobile (jobs, workers, freelancer posts); uploads verified by file content, not the declared type.
+- **Safety net:** mobile work committed; `npm audit fix` on the API and web (API 17 → 4 production vulnerabilities, the rest is `minio` with no safe upgrade); startup config check (`src/lib/checkEnv.ts`).
+- **Lists:** jobs newest first with stable paging; real offset paging ("load more" / infinite scroll) on every list in web and mobile; uploads verified by file content.
+- **SEO and web polish:** per-job title, description, canonical, share tags and schema.org JobPosting data; `sitemap.xml`, `robots.txt`, default share image; web lint at 0 errors.
+- **Confidence:** structured logger replaces every `console` call in the API; tests for saved jobs, notifications, work experience, uploads, job ordering, logger (138 API tests); fixed saving a job twice returning a 500.
+- **Sentry (code ready, off until a DSN is set):** API (`SENTRY_DSN`), web (`NEXT_PUBLIC_SENTRY_DSN`), mobile (`EXPO_PUBLIC_SENTRY_DSN`). Cookies, headers and request bodies are stripped before sending.
 
-## Still open from the audit
+## Still open
 
 | # | Item | Effort |
 |---|------|--------|
 | 1 | Create a remote for `front` (it has none, so it only exists on one machine) and push all three repos | S |
-| 2 | Job page SEO: server-render `/jobs/[id]` with per-job title/description, `sitemap`, `robots`, share image | M |
-| 3 | Web lint: run `biome check --write` (69 formatting/import-order errors), fix 7 accessibility errors, move 20 `<img>` to `next/image` | S |
-| 4 | Tests for the modules with none: payments, companies, notifications, savedJobs, plans, tags, workExperience | M |
-| 5 | Sentry on API, web, mobile; replace the 33 `console.*` calls with a logger | M |
-| 6 | Legal pages (terms, privacy), account-deletion page for the stores | S |
+| 2 | Create a Sentry account/projects and set the three DSNs; for mobile, add the `@sentry/react-native` plugin to `app.json` with an auth token to upload source maps | S |
+| 3 | Legal pages (terms, privacy), account-deletion page for the stores | S |
+| 4 | Tests for `companies` (ownership rules), `plans`, `tags`, and HTTP-level route tests (auth and roles) | M |
+| 5 | Web `<img>` to `next/image` (27 lint warnings): needs the image host (MinIO / CDN) configured in `next.config.ts` once the deploy host is chosen | S |
+| 6 | Mobile: patch-version alignment (`npx expo install --fix`, six packages behind), https app links for emailed links, EAS placeholders in `eas.json`, store listings | M |
 | 7 | `minio` advisory: revisit when a non-downgrade fix ships | S |
-| 8 | Mobile: https app links for emailed links; EAS placeholders in `eas.json`; store listings | M |
-| 9 | Staging deploy + smoke test; decide web hosting | M |
+| 8 | Staging deploy + smoke test; decide web hosting | M |
 
 ## Ideas, in the order I'd build them
 
@@ -62,9 +64,8 @@ Chosen for how people in Cuba actually use the internet: WhatsApp-first, expensi
 
 ## Suggested order
 
-1. Remote + push, then the SEO item and web lint (finish the audit).
+1. Remote + push for the web repo; create the Sentry projects and set the DSNs.
 2. WhatsApp sharing and contact (ideas 1–2): small and high impact.
-3. Sentry + tests for payments (items 4–5): before real money moves.
-4. Report button and verified companies (ideas 5–6): before opening to the public.
-5. Applicant pipeline and job alerts (ideas 8, 10): what makes people come back.
-6. Staging deploy, store submission, then the rest by demand.
+3. Report button and verified companies (ideas 5–6): before opening to the public.
+4. Applicant pipeline and job alerts (ideas 8, 10): what makes people come back.
+5. Legal pages, staging deploy, store submission, then the rest by demand.
