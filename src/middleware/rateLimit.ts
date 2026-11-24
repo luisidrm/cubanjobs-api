@@ -89,5 +89,8 @@ export const paymentLimiter = limiter("payment", 60 * MINUTE, 20, "Too many paym
 /** Avatar / CV uploads. */
 export const uploadLimiter = limiter("upload", 15 * MINUTE, 30, "Too many uploads, try again later");
 
+/** Reports: enough for an honest user, not enough to flood the admin queue. */
+export const reportLimiter = limiter("report", 60 * MINUTE, 10, "Too many reports, try again later");
+
 /** Joining a company by code: stops guessing codes. */
 export const joinLimiter = limiter("join", 15 * MINUTE, 10, "Too many attempts, try again later");

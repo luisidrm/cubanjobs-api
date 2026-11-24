@@ -8,6 +8,7 @@ import {
 } from "./admin.controller";
 import { requireAuth, requireRole } from "../../middleware/auth";
 import adminPaymentsRoutes from "./adminPayments.routes";
+import adminReportsRoutes from "./adminReports.routes";
 import { validateBody, validateParams, validateQuery } from "../../middleware/validate";
 import {
   verifyCompanySchema,
@@ -25,6 +26,9 @@ router.use(requireAuth, requireRole("admin"));
 
 // Payments queue, manual plans, prices and payment settings.
 router.use(adminPaymentsRoutes);
+
+// Reports queue.
+router.use(adminReportsRoutes);
 
 router.get("/companies/search", validateQuery(companySearchQuerySchema), searchCompaniesHandler);
 

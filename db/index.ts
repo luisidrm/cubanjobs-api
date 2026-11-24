@@ -14,3 +14,4 @@ export * from "./schema/payments";
 
 export * from "./schema/companyInvites";
 export * from "./schema/freelancerPosts";
+export * from "./schema/reports";
