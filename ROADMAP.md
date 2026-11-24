@@ -12,14 +12,14 @@ Effort: S = under a day, M = 1–3 days, L = a week or more.
 - **SEO and web polish:** per-job title, description, canonical, share tags and schema.org JobPosting data; `sitemap.xml`, `robots.txt`, default share image; web lint at 0 errors.
 - **Confidence:** structured logger replaces every `console` call in the API; tests for saved jobs, notifications, work experience, uploads, job ordering, logger (138 API tests); fixed saving a job twice returning a 500.
 - **WhatsApp:** share button on jobs and companies (web + mobile); employers can add a WhatsApp number to a job with a "Contact on WhatsApp" button; one link helper adds Cuba's 53 to local numbers.
+- **Repos and Sentry projects:** all three repos are on GitHub (`cubanjobs-api`, `cubanjobs-front`, `cubanjobs-mobile`) with `main` up to date; Sentry projects `cubanjobs-api`, `cubanjobs-web`, `cubanjobs-mobile` exist and API and web test errors were confirmed. DSNs live in each repo's local `.env` only.
 - **Sentry (code ready, off until a DSN is set):** API (`SENTRY_DSN`), web (`NEXT_PUBLIC_SENTRY_DSN`), mobile (`EXPO_PUBLIC_SENTRY_DSN`). Cookies, headers and request bodies are stripped before sending.
 
 ## Still open
 
 | # | Item | Effort |
 |---|------|--------|
-| 1 | Create a remote for `front` (it has none, so it only exists on one machine) and push all three repos | S |
-| 2 | Create a Sentry account/projects and set the three DSNs; for mobile, add the `@sentry/react-native` plugin to `app.json` with an auth token to upload source maps | S |
+| 1 | Sentry: add the `@sentry/react-native` plugin to `app.json` and an auth token (`SENTRY_AUTH_TOKEN`, never committed) so production stack traces from web and mobile are readable (source maps); set the three DSNs in the production environment and a lower `SENTRY_TRACES_SAMPLE_RATE` | S |
 | 3 | Legal pages (terms, privacy), account-deletion page for the stores | S |
 | 4 | Tests for `companies` (ownership rules), `plans`, `tags`, and HTTP-level route tests (auth and roles) | M |
 | 5 | Web `<img>` to `next/image` (27 lint warnings): needs the image host (MinIO / CDN) configured in `next.config.ts` once the deploy host is chosen | S |
