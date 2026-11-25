@@ -14,6 +14,8 @@ Effort: S = under a day, M = 1–3 days, L = a week or more.
 - **WhatsApp:** share button on jobs and companies (web + mobile); employers can add a WhatsApp number to a job with a "Contact on WhatsApp" button; one link helper adds Cuba's 53 to local numbers.
 - **Repos and Sentry projects:** all three repos are on GitHub (`cubanjobs-api`, `cubanjobs-front`, `cubanjobs-mobile`) with `main` up to date; Sentry projects `cubanjobs-api`, `cubanjobs-web`, `cubanjobs-mobile` exist and API and web test errors were confirmed. DSNs live in each repo's local `.env` only.
 - **Sentry (code ready, off until a DSN is set):** API (`SENTRY_DSN`), web (`NEXT_PUBLIC_SENTRY_DSN`), mobile (`EXPO_PUBLIC_SENTRY_DSN`). Cookies, headers and request bodies are stripped before sending.
+- **Trust and safety:** report button on jobs, companies and freelancer posts with an admin queue; verified-company badge on job cards and detail; postings that ask for money up front are warned and auto-filed for review; unverified companies can create at most 5 jobs per day.
+- **Mobile on Expo SDK 58** (React Native 0.88). Needs Node 22.13+; not yet tried on a device.
 
 ## Still open
 
@@ -39,9 +41,9 @@ Chosen for how people in Cuba actually use the internet: WhatsApp-first, expensi
 4. **Public profile link (S).** A shareable `/u/name` page for workers and freelancers (opt-in).
 
 ### Trust and safety
-5. **Report button + admin queue (M).** On jobs, posts and profiles; needed before the platform is public.
-6. **Verified badges (M).** Verified company (admin checks), verified identity, and verified email already exists. Shows on cards.
-7. **Scam guardrails (S).** Warn when a posting asks for payment up front; rate limit new accounts that post many jobs.
+5. ~~**Report button + admin queue (M).**~~ Done for jobs, freelancer posts and companies (not user profiles).
+6. ~~**Verified company badge (M).**~~ Done. Verified identity for people is still open.
+7. ~~**Scam guardrails (S).**~~ Done. The upfront-payment check is simple text matching (Spanish and English); tune it from what shows up in the queue.
 
 ### Hiring flow
 8. **Applicant pipeline (M).** Stages (new → interview → hired / rejected) with a push notification and email at each step.
@@ -66,7 +68,6 @@ Chosen for how people in Cuba actually use the internet: WhatsApp-first, expensi
 
 ## Suggested order
 
-1. Remote + push for the web repo; create the Sentry projects and set the DSNs.
-2. Report button and verified companies (ideas 5–6): before opening to the public.
-3. Applicant pipeline and job alerts (ideas 8, 10): what makes people come back.
-4. Legal pages, staging deploy, store submission, then the rest by demand.
+1. Applicant pipeline and job alerts (ideas 8, 10): what makes people come back.
+2. Legal pages, staging deploy, store submission.
+3. Source maps and production DSNs for Sentry, then the rest by demand.

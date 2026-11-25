@@ -10,6 +10,7 @@ import {
   deleteJob,
   type JobSearchFilters,
 } from "./jobs.queries";
+import { detectScamSignals } from "../../lib/scamSignals";
 import { getValidatedParams, getValidatedQuery } from "../../middleware/validate";
 import type { jobIdParamSchema, jobSearchQuerySchema } from "./jobs.schemas";
 
@@ -38,13 +39,14 @@ export async function getByCompany(req: Request, res: Response) {
 
 export async function create(req: Request, res: Response) {
   const job = await createJob(req.user!, req.body);
-  res.status(201).json({ success: true, data: job });
+  // Shown to the employer so they can fix the posting; admins review it either way.
+  res.status(201).json({ success: true, data: job, warnings: detectScamSignals(job.title, job.description) });
 }
 
 export async function update(req: Request, res: Response) {
   const { id } = getValidatedParams<JobIdParams>(req);
   const job = await updateJob(req.user!, id, req.body);
-  res.status(200).json({ success: true, data: job });
+  res.status(200).json({ success: true, data: job, warnings: detectScamSignals(job.title, job.description) });
 }
 
 export async function remove(req: Request, res: Response) {

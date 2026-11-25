@@ -15,7 +15,7 @@ export interface SavedJobWithDetails {
     salaryMin: number | null;
     salaryMax: number | null;
     currency: string | null;
-    company: { id: string; name: string; logoUrl: string | null };
+    company: { id: string; name: string; logoUrl: string | null; isVerified: boolean };
   };
 }
 
@@ -49,6 +49,7 @@ export async function getMySavedJobs(userId: string): Promise<SavedJobWithDetail
       companyId: companies.id,
       companyName: companies.name,
       companyLogoUrl: companies.logoUrl,
+      companyVerified: companies.isVerified,
     })
     .from(savedJobs)
     .innerJoin(jobs, eq(savedJobs.jobId, jobs.id))
@@ -67,7 +68,7 @@ export async function getMySavedJobs(userId: string): Promise<SavedJobWithDetail
       salaryMin: r.salaryMin,
       salaryMax: r.salaryMax,
       currency: r.currency,
-      company: { id: r.companyId, name: r.companyName, logoUrl: r.companyLogoUrl },
+      company: { id: r.companyId, name: r.companyName, logoUrl: r.companyLogoUrl, isVerified: r.companyVerified },
     },
   }));
 }

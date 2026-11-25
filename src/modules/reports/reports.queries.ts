@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "../../../db/client";
 import {
   companies,
@@ -56,6 +56,26 @@ export async function createReport(reporterId: string, input: CreateReportInput)
   return { alreadyReported: inserted.length === 0 };
 }
 
+/**
+ * Puts an item in the admin queue on the system's own initiative (no reporter). There is at most one
+ * open system report per item, so editing a flagged posting over and over doesn't pile up duplicates.
+ * Returns true when a new report was filed.
+ */
+export async function flagForReview(
+  targetType: ReportTargetType,
+  targetId: string,
+  reason: CreateReportInput["reason"],
+  note: string,
+): Promise<boolean> {
+  const [open] = await db
+    .select({ id: reports.id })
+    .from(reports)
+    .where(and(isNull(reports.reporterId), eq(reports.targetType, targetType), eq(reports.targetId, targetId), eq(reports.status, "open")));
+  if (open) return false;
+  await db.insert(reports).values({ reporterId: null, targetType, targetId, reason, note });
+  return true;
+}
+
 async function targetSummaries(rows: { targetType: ReportTargetType; targetId: string }[]) {
   const idsOf = (t: ReportTargetType) => rows.filter((r) => r.targetType === t).map((r) => r.targetId);
   const out = new Map<string, { title: string; exists: boolean; extra?: string }>();
@@ -108,7 +128,7 @@ export async function listReports(query: ListReportsQuery) {
       reporterEmail: users.email,
     })
     .from(reports)
-    .innerJoin(users, eq(reports.reporterId, users.id))
+    .leftJoin(users, eq(reports.reporterId, users.id))
     .where(where)
     .orderBy(desc(reports.createdAt), desc(reports.id))
     .limit(query.limit)
@@ -170,7 +190,8 @@ export async function resolveReport(reportId: string, adminId: string, input: Re
 
   const actioned = input.status === "actioned";
   await Promise.all(
-    resolved.map((r) =>
+    // System reports have no reporter to thank.
+    resolved.filter((r): r is typeof r & { reporterId: string } => r.reporterId !== null).map((r) =>
       insertNotification({
         userId: r.reporterId,
         type: "report_resolved",

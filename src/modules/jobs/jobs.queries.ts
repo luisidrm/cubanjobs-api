@@ -1,10 +1,13 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, sql } from "drizzle-orm";
 import { db } from "../../../db/client";
 import { jobs, jobTags, companies, type Job, type Company } from "../../../db";
 import { AppError } from "../../lib/AppError";
+import { logger } from "../../lib/logger";
+import { detectScamSignals } from "../../lib/scamSignals";
 import { getPlanJobLimit } from "../../lib/plans";
 import type { CreateJobInput, UpdateJobInput } from "./jobs.schemas";
 import { assertCanManage, getCompanyById, type RequestingUser } from "../companies/companies.queries";
+import { flagForReview } from "../reports/reports.queries";
 
 export interface JobSearchFilters {
   q?: string;
@@ -33,7 +36,7 @@ export interface JobWithCompany {
   createdAt: Date;
   /** Only filled by the single-job lookup; list results leave it out. */
   contactWhatsapp?: string | null;
-  company: { id: string; name: string; logoUrl: string | null };
+  company: { id: string; name: string; logoUrl: string | null; isVerified: boolean };
 }
 
 export async function searchJobs(filters: JobSearchFilters): Promise<JobWithCompany[]> {
@@ -85,6 +88,7 @@ export async function searchJobs(filters: JobSearchFilters): Promise<JobWithComp
       companyId: companies.id,
       companyName: companies.name,
       companyLogoUrl: companies.logoUrl,
+      companyVerified: companies.isVerified,
     })
     .from(jobs)
     .innerJoin(companies, eq(jobs.companyId, companies.id))
@@ -107,7 +111,7 @@ export async function searchJobs(filters: JobSearchFilters): Promise<JobWithComp
     viewCount: r.viewCount,
     coverImageUrl: r.coverImageUrl,
     createdAt: r.createdAt,
-    company: { id: r.companyId, name: r.companyName, logoUrl: r.companyLogoUrl },
+    company: { id: r.companyId, name: r.companyName, logoUrl: r.companyLogoUrl, isVerified: r.companyVerified },
   }));
 }
 
@@ -147,6 +151,7 @@ export async function getJobWithCompanyById(id: string): Promise<JobWithCompany>
       companyId: companies.id,
       companyName: companies.name,
       companyLogoUrl: companies.logoUrl,
+      companyVerified: companies.isVerified,
     })
     .from(jobs)
     .innerJoin(companies, eq(jobs.companyId, companies.id))
@@ -168,7 +173,7 @@ export async function getJobWithCompanyById(id: string): Promise<JobWithCompany>
     coverImageUrl: row.coverImageUrl,
     createdAt: row.createdAt,
     contactWhatsapp: row.contactWhatsapp,
-    company: { id: row.companyId, name: row.companyName, logoUrl: row.companyLogoUrl },
+    company: { id: row.companyId, name: row.companyName, logoUrl: row.companyLogoUrl, isVerified: row.companyVerified },
   };
 }
 
@@ -217,13 +222,48 @@ export async function getJobsByCompany(
   return db.select().from(jobs).where(eq(jobs.companyId, companyId));
 }
 
+/** How many jobs a company that hasn't been verified yet may create per rolling 24 hours. */
+export const UNVERIFIED_DAILY_JOB_LIMIT = 5;
+
+/** Slows down throwaway accounts that flood the board; verified companies and admins are exempt. */
+async function assertNotPostingTooFast(company: Company): Promise<void> {
+  if (company.isVerified) return;
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const [row] = await db
+    .select({ n: count() })
+    .from(jobs)
+    .where(and(eq(jobs.companyId, company.id), gte(jobs.createdAt, since)));
+  if ((row?.n ?? 0) >= UNVERIFIED_DAILY_JOB_LIMIT) {
+    throw new AppError(
+      429,
+      `Companies that aren't verified yet can post up to ${UNVERIFIED_DAILY_JOB_LIMIT} jobs per day. Try again tomorrow, or ask us to verify your company.`
+    );
+  }
+}
+
+/**
+ * A live posting that looks like it asks for money up front goes to the admin queue. The posting is not
+ * blocked (the check is only text matching), and a failure to flag it never fails the employer's save.
+ */
+async function flagIfSuspicious(job: Job): Promise<void> {
+  if (job.status !== "active") return;
+  if (detectScamSignals(job.title, job.description).length === 0) return;
+  try {
+    await flagForReview("job", job.id, "upfront_payment", "Marcado automáticamente: el texto parece pedir un pago por adelantado.");
+  } catch (err) {
+    logger.error("Could not flag a suspicious job for review", err instanceof Error ? err : new Error(String(err)));
+  }
+}
+
 export async function createJob(user: RequestingUser, input: CreateJobInput): Promise<Job> {
   const company = await assertOwnsCompany(user, input.companyId);
+  if (user.role !== "admin") await assertNotPostingTooFast(company);
   if (input.status === "active") {
     await assertUnderActiveJobLimit(company);
   }
   const [job] = await db.insert(jobs).values(input).returning();
   if (!job) throw new AppError(500, "Failed to create job");
+  await flagIfSuspicious(job);
   return job;
 }
 
@@ -239,6 +279,7 @@ export async function updateJob(
   }
   const [updated] = await db.update(jobs).set(input).where(eq(jobs.id, jobId)).returning();
   if (!updated) throw new AppError(500, "Failed to update job");
+  await flagIfSuspicious(updated);
   return updated;
 }
 

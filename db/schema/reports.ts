@@ -25,9 +25,8 @@ export const reports = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
 
-    reporterId: uuid("reporter_id")
-      .references(() => users.id, { onDelete: "cascade" })
-      .notNull(),
+    /** Null for reports the system files itself (e.g. a posting that asks for money up front). */
+    reporterId: uuid("reporter_id").references(() => users.id, { onDelete: "cascade" }),
 
     targetType: reportTargetTypeEnum("target_type").notNull(),
     targetId: uuid("target_id").notNull(),
