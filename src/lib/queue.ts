@@ -1,3 +1,4 @@
+import { stageEmail, stageMessage, type ApplicationStage } from "./applicationMessages";
 import { Queue, Worker, type Job } from "bullmq";
 import Redis from "ioredis";
 import { sendEmail } from "./email";
@@ -99,15 +100,16 @@ const worker = new Worker<NotificationJob>(
     const { applicantEmail, applicantName, expoPushToken, jobTitle, companyName, status } =
       job.data as ApplicationStatusChangedJob;
 
-    const subject = `Your application to ${jobTitle} was updated`;
-    const html = `<p>Hi ${applicantName},</p><p>Your application to <strong>${jobTitle}</strong> at <strong>${companyName}</strong> is now <strong>${status}</strong>.</p>`;
+    const stage = status as ApplicationStage;
+    const { subject, html } = stageEmail(stage, applicantName, jobTitle, companyName);
 
     // Push is a best-effort bonus channel — its failure shouldn't retry the
     // whole job (and re-send the email). Email is the primary channel, so
     // its rejection is left to propagate and trigger BullMQ's retry/backoff.
     if (expoPushToken) {
       try {
-        await sendPushNotification(expoPushToken, subject, `Status: ${status}`);
+        const push = stageMessage(stage, jobTitle, companyName);
+        await sendPushNotification(expoPushToken, push.title, push.body);
       } catch (err) {
         logger.warn("⚠️  Push notification failed:", (err as Error).message);
       }

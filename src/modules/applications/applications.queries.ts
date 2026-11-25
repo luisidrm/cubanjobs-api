@@ -3,6 +3,7 @@ import { db } from "../../../db/client";
 import { applications, jobs, companies, users, type Application } from "../../../db";
 import { AppError } from "../../lib/AppError";
 import { getSignedUrl } from "../../lib/minio";
+import { stageMessage } from "../../lib/applicationMessages";
 import { enqueueApplicationStatusNotification } from "../../lib/queue";
 import { insertNotification } from "../notifications/notifications.queries";
 import type {
@@ -257,6 +258,11 @@ export async function updateApplicationStatus(
 
   await assertCanManage(company, user);
 
+  // The applicant took it back: the employer cannot move it along any more.
+  if (application.status === "withdrawn") throw new AppError(409, "This application was withdrawn by the applicant");
+  // Saving the stage it is already in changes nothing and must not notify again.
+  if (application.status === input.status) return application;
+
   const [updated] = await db
     .update(applications)
     .set({ status: input.status })
@@ -270,8 +276,7 @@ export async function updateApplicationStatus(
   await insertNotification({
     userId: updated.userId,
     type: "application_status_changed",
-    title: `Your application to ${job.title} was updated`,
-    body: `Your application at ${company.name} is now ${updated.status}.`,
+    ...stageMessage(updated.status, job.title, company.name),
     data: { applicationId: updated.id, jobId: job.id },
   });
 

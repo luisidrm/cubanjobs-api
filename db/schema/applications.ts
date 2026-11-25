@@ -13,6 +13,7 @@ import { timestamps } from "../helpers";
 export const applicationStatusEnum = pgEnum("application_status", [
   "pending",
   "reviewed",
+  "interview",
   "rejected",
   "accepted",
   "withdrawn",

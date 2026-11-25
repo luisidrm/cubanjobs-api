@@ -46,7 +46,7 @@ Chosen for how people in Cuba actually use the internet: WhatsApp-first, expensi
 7. ~~**Scam guardrails (S).**~~ Done. The upfront-payment check is simple text matching (Spanish and English); tune it from what shows up in the queue.
 
 ### Hiring flow
-8. **Applicant pipeline (M).** Stages (new → interview → hired / rejected) with a push notification and email at each step.
+8. ~~**Applicant pipeline (M).**~~ Done: pending, reviewed, interview, accepted or rejected, with per-stage filters and a notification, email and push at each step. Original note: Stages (new → interview → hired / rejected) with a push notification and email at each step.
 9. **Skill match score (M).** "You match 4 of 6 skills" on a job; ranked applicants for employers. Skills are already stored.
 10. **Job alerts (M).** Save a search; push and email when a new job matches. The notification queue already exists.
 11. **Interview scheduling (M).** Employer proposes times; worker confirms; reminder push.
