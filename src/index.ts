@@ -47,7 +47,14 @@ async function start() {
     await runPlanMaintenance();
   });
 
-  const server = app.listen(PORT, () => {
+  const server = app.listen(PORT, async (error?: Error) => {
+    // Express 5 hands listen failures (port already taken) to this callback; without
+    // this check the process claimed to be running while another one served the port.
+    if (error) {
+      logger.error(`Could not listen on port ${PORT}`, error);
+      await flushSentry();
+      process.exit(1);
+    }
     logger.info(`🚀 Server running on http://localhost:${PORT}`);
   });
 

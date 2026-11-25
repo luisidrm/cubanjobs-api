@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { logger } from "./logger";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -13,7 +14,19 @@ interface SendEmailInput {
   html: string;
 }
 
+// Domains reserved for testing and documentation (RFC 2606 / 6761): no mailbox can ever exist there.
+const RESERVED_DOMAIN = /@(?:[^@]+\.)?(?:example\.(?:com|net|org)|test|example|invalid|localhost)$/i;
+
+/** True for addresses used by test accounts, which a mail provider would only reject. */
+export function isUndeliverableTestAddress(to: string): boolean {
+  return RESERVED_DOMAIN.test(to.trim());
+}
+
 export async function sendEmail({ to, subject, html }: SendEmailInput): Promise<void> {
+  if (isUndeliverableTestAddress(to)) {
+    logger.info(`Email "${subject}" not sent: the recipient is a reserved test domain`);
+    return;
+  }
   const { error } = await resend.emails.send({ from: EMAIL_FROM, to, subject, html });
   if (error) {
     throw new Error(`Failed to send email via Resend: ${error.message}`);

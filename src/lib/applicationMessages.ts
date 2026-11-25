@@ -3,7 +3,9 @@
  * in-app notification, the email and the push, in Spanish like the rest of the product.
  */
 
-export type ApplicationStage = "pending" | "reviewed" | "interview" | "accepted" | "rejected" | "withdrawn";
+import { escapeHtml } from "./emailTemplate";
+
+export type ApplicationStage ="pending" | "reviewed" | "interview" | "accepted" | "rejected" | "withdrawn";
 
 const STAGE: Record<ApplicationStage, { title: string; body: (job: string, company: string) => string }> = {
   pending: { title: "Tu solicitud está pendiente", body: (j, c) => `Tu solicitud para ${j} en ${c} volvió a estar pendiente.` },
@@ -19,13 +21,7 @@ export function stageMessage(status: ApplicationStage, jobTitle: string, company
   return { title: s.title, body: s.body(jobTitle, companyName) };
 }
 
-const ENTITIES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
-
-/** Job titles and names are typed by users: they must never become markup in an email. */
-export function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (ch) => ENTITIES[ch] as string);
-}
-
+// Job titles and names are typed by users: they must never become markup in an email.
 export function stageEmail(status: ApplicationStage, applicantName: string, jobTitle: string, companyName: string) {
   const { title, body } = stageMessage(status, jobTitle, companyName);
   return {
